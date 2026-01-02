@@ -1,80 +1,125 @@
 ﻿using Integration.Application.DTOs;
 using Integration.Application.Interfaces;
+using Serilog.Context;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Integration.Worker
-{
-    public class CustomerSyncBackgroundService : BackgroundService
-    {
-        private readonly ILogger<CustomerSyncBackgroundService> _logger;
-        private readonly IServiceProvider _serviceProvider;
-        private readonly IConfiguration _configuration;
+namespace Integration.Worker;
 
-        public CustomerSyncBackgroundService(
-            ILogger<CustomerSyncBackgroundService> logger,
-            IServiceProvider serviceProvider,
-            IConfiguration configuration)
+public class CustomerSyncBackgroundService : BackgroundService
+{
+    private readonly ILogger<CustomerSyncBackgroundService> _logger;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly IConfiguration _configuration;
+
+
+    public CustomerSyncBackgroundService(ILogger<CustomerSyncBackgroundService> logger, IServiceProvider serviceProvider, IConfiguration configuration)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+    }
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using (LogContext.PushProperty("Service", nameof(CustomerSyncBackgroundService)))
+        using (LogContext.PushProperty("Environment", _configuration["Environment"] ?? "Unknown"))
         {
-            _logger = logger;
-            _serviceProvider = serviceProvider;
-            _configuration = configuration;
-        }
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            _logger.LogInformation("Customer Sync Background Service started");
+            _logger.LogInformation("Customer Sync Background Service started.");
+
+            var enableSync = _configuration.GetValue<bool>("SyncSettings:EnableCustomerSync", true);
+            if (!enableSync)
+            {
+                _logger.LogInformation("Customer Sync is disabled via configuration. Stopping service.");
+                return;
+            }
+
+            var dailySyncTime = _configuration.GetValue<string>("SyncSettings:DailySyncTime", "02:00:00");
+            var syncIntervalMinutes = CalculateMinutesUntilNextRun(dailySyncTime);
 
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    await PerformSyncAsync(stoppingToken);
-
-                    var dailySyncTime = _configuration["SyncSettings:DailySyncTime"] ?? "02:00:00";
-                    var nextRun = GetNextRunTime(dailySyncTime);
-                    var delay = nextRun - DateTime.Now;
-
-                    if (delay > TimeSpan.Zero)
-                    {
-                        _logger.LogInformation("Next customer sync scheduled for {NextRun}", nextRun);
-                        await Task.Delay(delay, stoppingToken);
-                    }
+                    _logger.LogInformation("Starting Customer sync cycle .");
+                    await PerformSyncWithRetryAsync(stoppingToken);
+                    _logger.LogInformation("Customer sync cycle completed .");
                 }
-                catch (Exception ex) when (ex is not TaskCanceledException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    _logger.LogError(ex, "Error in customer sync background service");
-                    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+                    _logger.LogError(ex, "Error occurred during Customer sync cycle.");
                 }
+                try
+                {
+                    var delay = TimeSpan.FromMinutes(syncIntervalMinutes);
+                    _logger.LogInformation("Customer Sync Background Service waiting for {Delay} minutes before next cycle.", delay.TotalMinutes);
+                    await Task.Delay(delay, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Customer Sync Background Service cancellation requested. Stopping.");
+                    break;
+                }
+
             }
         }
+    }
 
-        private DateTime GetNextRunTime(string dailySyncTime)
+    private async Task PerformSyncWithRetryAsync(CancellationToken stoppingToken)
+    {
+        const int maxRetries = 2;
+        int retryCount = 0;
+
+        while (true)
         {
-            var now = DateTime.Now;
-            var syncTime = TimeSpan.Parse(dailySyncTime);
-            var todaySync = now.Date.Add(syncTime);
-
-            return now < todaySync ? todaySync : todaySync.AddDays(1);
-        }
-
-        private async Task PerformSyncAsync(CancellationToken stoppingToken)
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var syncService = scope.ServiceProvider.GetRequiredService<ICustomerSyncService>();
-
-            var request = new XontCustomerSyncRequestDto
+            try
             {
-                Date = DateTime.Now.AddDays(-1).ToString("yyyyMMdd")
-            };
+                await PerformSyncAsync(stoppingToken);
+                break;
+            }
+            catch (Exception ex)
+            {
+                retryCount++;
 
-            var result = await syncService.SyncCustomersFromSapAsync(request);
+                if (retryCount > maxRetries)
+                {
+                    _logger.LogError(ex, "Customer sync failed after {RetryCount} attempts. Giving up.", maxRetries + 1);
+                    throw;
+                }
 
-            _logger.LogInformation(
-                "Daily customer sync completed: {Total} total, {New} new, {Updated} updated, {Skipped} skipped",
-                result.TotalRecords, result.NewCustomers, result.UpdatedCustomers, result.SkippedCustomers);
+                _logger.LogWarning(ex, "Customer sync failed on attempt {Attempt}/{MaxRetries}. Retrying in 30 seconds...", retryCount, maxRetries + 1);
+
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+            }
         }
+    }
+    private int CalculateMinutesUntilNextRun(string dailySyncTime)
+    {
+        var now = DateTime.Now;
+        var syncTime = TimeSpan.Parse(dailySyncTime);
+        var todaySync = now.Date.Add(syncTime);
+
+        var nextRun = now < todaySync ? todaySync : todaySync.AddDays(1);
+        var delay = nextRun - now;
+        return (int)delay.TotalMinutes;
+    }
+    private async Task PerformSyncAsync(CancellationToken stoppingToken)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var syncService = scope.ServiceProvider.GetRequiredService<ICustomerSyncService>();
+
+        var request = new XontCustomerSyncRequestDto
+        {
+            Date = DateTime.Now.AddDays(-1).ToString("yyyyMMdd")
+        };
+
+        var result = await syncService.SyncCustomersFromSapAsync(request);
+
+        _logger.LogInformation(
+            "Customer sync completed: {Total} total, {New} new, {Updated} updated, Skipped: {Skipped}",
+            result.TotalRecords, result.NewCustomers, result.UpdatedCustomers, result.SkippedCustomers);
+
     }
 }

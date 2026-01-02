@@ -5,10 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Integration.Application.Interfaces
+namespace Integration.Application.Interfaces;
+
+public interface IMaterialSyncService
 {
-    public interface IMaterialSyncService
-    {
-        Task<MaterialSyncResultDto> SyncMaterialsFromSapAsync(XontMaterialSyncRequestDto request);
-    }
+    Task<MaterialSyncResultDto> SyncMaterialsFromSapAsync(XontMaterialSyncRequestDto request);
 }

@@ -5,12 +5,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Integration.Application.Interfaces
+namespace Integration.Application.Interfaces;
+
+public interface IBusinessUnitRepository
 {
-    public interface IBusinessUnitRepository : IDisposable
-    {
-        Task<List<BusinessUnitDBMAP>> GetAllActiveBusinessUnitsAsync();
-        Task<BusinessUnitDBMAP> GetBusinessUnitByCodeAsync(string businessUnitCode);
-        Task<BusinessUnitDBMAP> GetBusinessUnitByDivisionAsync( string division);
-    }
+    Task<List<BusinessUnitDBMAP>> GetAllActiveBusinessUnitsAsync();
+    Task<BusinessUnitDBMAP> GetBusinessUnitByCodeAsync(string businessUnitCode);
+    Task<BusinessUnitDBMAP> GetBusinessUnitByDivisionAsync( string division);
 }
