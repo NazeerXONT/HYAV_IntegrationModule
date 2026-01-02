@@ -4,9 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Integration.Application.Services
+namespace Integration.Application.Services;
+
+sealed class PaymentSyncService
 {
-    sealed class PaymentSyncService
-    {
-    }
 }

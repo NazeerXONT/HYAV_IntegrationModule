@@ -6,18 +6,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Integration.Domain.Entities
+namespace Integration.Domain.Entities;
+
+public class BusinessUnitDBMAP
 {
-    public class BusinessUnitDBMAP
-    {
-        public string BusinessUnit { get; set; }=string.Empty;
+    public string BusinessUnit { get; set; }=string.Empty;
 
-        public string BusinessUnitName { get; set; }= string.Empty;
+    public string BusinessUnitName { get; set; }= string.Empty;
 
-        public string DatabaseName { get; set; } = string.Empty;
+    public string DatabaseName { get; set; } = string.Empty;
 
 
-        public string Division { get; set; } = string.Empty;
+    public string Division { get; set; } = string.Empty;
 
-    }
 }

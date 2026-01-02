@@ -12,12 +12,19 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
 
+// --- create the application builder
 var builder = WebApplication.CreateBuilder(args);
-builder.Host.UseSerilog((context, configuration) =>
-    configuration.ReadFrom.Configuration(context.Configuration));
 
+// Configure Serilog 
+builder.Host.UseSerilog((context, configuration) =>   configuration.ReadFrom.Configuration(context.Configuration));
+
+
+// --- add controllers and endpoints ---
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+
+// --- Add swagger documentation ---
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "SAP Integration API", Version = "v1" });
@@ -48,13 +55,27 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+
+// --- Global Database contexts ---
 builder.Services.AddDbContext<GlobalDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("GlobalDatabase")));
 
+// --- BU DbContext factory ---
+builder.Services.AddScoped<Func<string, BuDbContext>>(provider => buCode =>
+{
+    var buHelper = provider.GetRequiredService<BusinessUnitResolveHelper>();
+    var connectionString = buHelper.BuildConnectionString(buCode);
+
+    var optionsBuilder = new DbContextOptionsBuilder<BuDbContext>();
+    optionsBuilder.UseSqlServer(connectionString);
+
+    return new BuDbContext(optionsBuilder.Options, buCode);
+});
+
+// --- JWT Authentication ---
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (string.IsNullOrEmpty(jwtKey))
     throw new InvalidOperationException("JWT Key is not configured");
-
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -73,9 +94,9 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
     };
 });
-
 builder.Services.AddAuthorization();
 
+// --- SAP HTTP Client ---
 builder.Services.AddHttpClient<ISapClient, SapApiClient>((serviceProvider, client) =>
 {
     var config = serviceProvider.GetRequiredService<IConfiguration>();
@@ -104,35 +125,46 @@ builder.Services.AddHttpClient<ISapClient, SapApiClient>((serviceProvider, clien
     client.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
 });
 
+// --- Dependency Injection for Helpers ---
 builder.Services.AddScoped<CustomerMappingHelper>();
 builder.Services.AddScoped<MaterialMappingHelper>();
 builder.Services.AddScoped<BusinessUnitResolveHelper>();
 builder.Services.AddScoped<PasswordHashHelper>();
+
+// --- Dependency Injection for repositories ---
 builder.Services.AddScoped<IBusinessUnitRepository, BusinessUnitRepository>();
 builder.Services.AddScoped<ILogRepository, LogRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRetailerRepository, RetailerRepository>();
-builder.Services.AddScoped<ICustomerSyncService, CustomerSyncService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+
+// --- Dependency Injection for services ---
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICustomerSyncService, CustomerSyncService>();
 builder.Services.AddScoped<IMaterialSyncService, MaterialSyncService>();
 
+// --- Build the application ---
 var app = builder.Build();
 
+// --- Configure the HTTP request pipeline ---
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
+// Enable Swagger in development environment
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// Enforce HTTPS
 app.UseHttpsRedirection();
+// Enable authentication and authorization
 app.UseAuthentication();
 app.UseAuthorization();
+// Map controller routes
 app.MapControllers();
-
+// Simple health check endpoint
 app.MapGet("/", () => "SAP Integration API is running");
-
+// Run the application
 app.Run();
