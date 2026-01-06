@@ -2,16 +2,10 @@
 using Integration.Application.Helpers;
 using Integration.Application.Interfaces;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Integration.Application.Services;
 
-
-public class CustomerSyncService : ICustomerSyncService
+public sealed class CustomerSyncService : ICustomerSyncService
 {
     private readonly IRetailerRepository _customerRepository;
     private readonly ISapClient _sapClient;
@@ -22,20 +16,21 @@ public class CustomerSyncService : ICustomerSyncService
         IRetailerRepository customerRepository,
         ISapClient sapClient,
         CustomerMappingHelper mappingHelper,
-        ILogger<CustomerSyncService> logger)
+        ILogger<CustomerSyncService> logger
+    )
     {
-        _customerRepository = customerRepository ?? throw new ArgumentNullException(nameof(customerRepository));
+        _customerRepository =
+            customerRepository ?? throw new ArgumentNullException(nameof(customerRepository));
         _sapClient = sapClient ?? throw new ArgumentNullException(nameof(sapClient));
         _mappingHelper = mappingHelper ?? throw new ArgumentNullException(nameof(mappingHelper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<CustomerSyncResultDto> SyncCustomersFromSapAsync(XontCustomerSyncRequestDto request)
+    public async Task<CustomerSyncResultDto> SyncCustomersFromSapAsync(
+        XontCustomerSyncRequestDto request
+    )
     {
-        var result = new CustomerSyncResultDto
-        {
-            SyncDate = DateTime.Now
-        };
+        var result = new CustomerSyncResultDto { SyncDate = DateTime.Now };
 
         try
         {
@@ -59,7 +54,10 @@ public class CustomerSyncService : ICustomerSyncService
 
             result.TotalRecords = sapCustomers.Count;
 
-            var groups = sapCustomers.Where(c => !string.IsNullOrWhiteSpace(c.Customer)).GroupBy(c => c.Customer).ToList();
+            var groups = sapCustomers
+                .Where(c => !string.IsNullOrWhiteSpace(c.Customer))
+                .GroupBy(c => c.Customer)
+                .ToList();
 
             await _customerRepository.BeginTransactionAsync();
 
@@ -73,16 +71,19 @@ public class CustomerSyncService : ICustomerSyncService
                 await _customerRepository.CommitTransactionAsync();
 
                 result.Success = true;
-                result.Message = $"Customer sync  completed. " +
-                               $"Total: {result.TotalRecords}, " +
-                               $"New: {result.NewCustomers}, " +
-                               $"Updated: {result.UpdatedCustomers}, " +
-                               $"Skipped: {result.SkippedCustomers}, ";
-
+                result.Message =
+                    $"Customer sync  completed. "
+                    + $"Total: {result.TotalRecords}, "
+                    + $"New: {result.NewCustomers}, "
+                    + $"Updated: {result.UpdatedCustomers}, "
+                    + $"Skipped: {result.SkippedCustomers}, ";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during customer processing in sync , rolling back transaction");
+                _logger.LogError(
+                    ex,
+                    "Error during customer processing in sync , rolling back transaction"
+                );
 
                 await _customerRepository.RollbackTransactionAsync();
 
@@ -104,7 +105,10 @@ public class CustomerSyncService : ICustomerSyncService
         return result;
     }
 
-    private async Task ProcessCustomerGroupAsync(List<SapCustomerResponseDto> sapCustomers,  CustomerSyncResultDto result)
+    private async Task ProcessCustomerGroupAsync(
+        List<SapCustomerResponseDto> sapCustomers,
+        CustomerSyncResultDto result
+    )
     {
         if (!sapCustomers.Any())
             return;
@@ -117,7 +121,10 @@ public class CustomerSyncService : ICustomerSyncService
             {
                 var xontRetailer = await _mappingHelper.MapSapToXontCustomerAsync(sapCustomer);
 
-                var existing = await _customerRepository.GetByRetailerCodeAsync(xontRetailer.RetailerCode,xontRetailer.BusinessUnit);
+                var existing = await _customerRepository.GetByRetailerCodeAsync(
+                    xontRetailer.RetailerCode,
+                    xontRetailer.BusinessUnit
+                );
 
                 if (existing == null)
                 {
@@ -144,13 +151,18 @@ public class CustomerSyncService : ICustomerSyncService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing customer {Code} in sync ", sapCustomer.Customer);
+                _logger.LogError(
+                    ex,
+                    "Error processing customer {Code} in sync ",
+                    sapCustomer.Customer
+                );
 
-                throw new CustomerSyncException( $"Failed to process customer {sapCustomer.Customer}: {ex.Message}", sapCustomer.Customer, ex);
+                throw new CustomerSyncException(
+                    $"Failed to process customer {sapCustomer.Customer}: {ex.Message}",
+                    sapCustomer.Customer,
+                    ex
+                );
             }
         }
-
     }
-
 }
-

@@ -46,5 +46,6 @@ public sealed class SalesInvoiceHeader : SalesHeaderBase
     public string DeliveryStatus { get; set; } = "0";
 
     public ICollection<SalesInvoiceLine> Lines { get; set; } = new List<SalesInvoiceLine>();
-    public ICollection<SalesInvoiceDiscount> Discounts { get; set; } = new List<SalesInvoiceDiscount>();
+    public ICollection<SalesInvoiceDiscount> Discounts { get; set; } =
+        new List<SalesInvoiceDiscount>();
 }

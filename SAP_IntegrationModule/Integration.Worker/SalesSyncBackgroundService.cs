@@ -4,14 +4,14 @@ using Serilog.Context;
 
 namespace Integration.Worker;
 
-public sealed class CustomerSyncBackgroundService : BackgroundService
+public sealed class SalesSyncBackgroundService : BackgroundService
 {
-    private readonly ILogger<CustomerSyncBackgroundService> _logger;
+    private readonly ILogger<SalesSyncBackgroundService> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly IConfiguration _configuration;
 
-    public CustomerSyncBackgroundService(
-        ILogger<CustomerSyncBackgroundService> logger,
+    public SalesSyncBackgroundService(
+        ILogger<SalesSyncBackgroundService> logger,
         IServiceProvider serviceProvider,
         IConfiguration configuration
     )

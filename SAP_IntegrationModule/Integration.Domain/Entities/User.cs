@@ -17,6 +17,7 @@ public class User : BaseAuditableEntity
 
     public virtual List<UserSession>? Sessions { get; set; }
 }
+
 public class UserSession
 {
     public long RecID { get; set; }
@@ -32,4 +33,3 @@ public class UserSession
 
     public virtual User? User { get; set; }
 }
-

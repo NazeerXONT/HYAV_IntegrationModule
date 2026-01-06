@@ -1,5 +1,4 @@
-﻿
-namespace Integration.Domain.Entities;
+﻿namespace Integration.Domain.Entities;
 
 public abstract class SalesDiscountBase : BaseAuditableEntity
 {

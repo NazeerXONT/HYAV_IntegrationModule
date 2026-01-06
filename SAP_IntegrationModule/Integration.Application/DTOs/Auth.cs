@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 namespace Integration.Application.DTOs;
 
-public class AuthRequestDto
+public sealed class AuthRequestDto
 {
     public string BusinessUnit { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
 }
 
-public class AuthResponseDto
+public sealed class AuthResponseDto
 {
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
@@ -24,7 +24,7 @@ public class AuthResponseDto
     public int RefreshTokenExpiresIn { get; set; }
 }
 
-public class UserDto
+public sealed class UserDto
 {
     public long UserId { get; set; }
     public string Username { get; set; } = string.Empty;
@@ -35,19 +35,19 @@ public class UserDto
     public string CreatedBy { get; set; } = string.Empty;
 }
 
-public class CreateUserDto
+public sealed class CreateUserDto
 {
     public string BusinessUnit { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
 }
 
-public class RefreshTokenRequestDto
+public sealed class RefreshTokenRequestDto
 {
     public string RefreshToken { get; set; } = string.Empty;
 }
 
-public class LogoutRequestDto
+public sealed class LogoutRequestDto
 {
     public string RefreshToken { get; set; } = string.Empty;
 }

@@ -1,14 +1,14 @@
-﻿using Integration.Application.Interfaces;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Integration.Application.Helpers;
+using Integration.Application.Interfaces;
 using Integration.Domain.Entities;
 using Integration.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Integration.Infrastructure.Repositories;
 
@@ -18,13 +18,18 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
     private readonly BusinessUnitResolveHelper _businessUnitHelper;
     private readonly ILogger<ProductRepository> _logger;
     private IDbContextTransaction? _globalTransaction;
-    private Dictionary<string, IDbContextTransaction> _buTransactions = new();
-    private Dictionary<string, BuDbContext> _buContexts = new();
+    private readonly Dictionary<string, IDbContextTransaction> _buTransactions = new();
+    private readonly Dictionary<string, BuDbContext> _buContexts = new();
 
-    public ProductRepository( GlobalDbContext globalContext, BusinessUnitResolveHelper businessUnitHelper, ILogger<ProductRepository> logger)
+    public ProductRepository(
+        GlobalDbContext globalContext,
+        BusinessUnitResolveHelper businessUnitHelper,
+        ILogger<ProductRepository> logger
+    )
     {
         _globalContext = globalContext ?? throw new ArgumentNullException(nameof(globalContext));
-        _businessUnitHelper = businessUnitHelper ?? throw new ArgumentNullException(nameof(businessUnitHelper));
+        _businessUnitHelper =
+            businessUnitHelper ?? throw new ArgumentNullException(nameof(businessUnitHelper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -38,7 +43,6 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
 
     public async Task CommitTransactionAsync()
     {
-
         try
         {
             var globalChanges = await _globalContext.SaveChangesAsync();
@@ -48,7 +52,6 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
                 {
                     var buChanges = await context.SaveChangesAsync();
                     await transaction.CommitAsync();
-
 
                     await transaction.DisposeAsync();
                     await context.DisposeAsync();
@@ -62,7 +65,6 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
             _buTransactions.Clear();
             _buContexts.Clear();
             _globalTransaction = null;
-
         }
         catch (Exception ex)
         {
@@ -97,7 +99,6 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
             _buTransactions.Clear();
             _buContexts.Clear();
             _globalContext.ChangeTracker.Clear();
-
         }
         catch (Exception ex)
         {
@@ -109,22 +110,34 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
     public async Task<Product?> GetByProductCodeAsync(string productCode, string businessUnit)
     {
         if (string.IsNullOrWhiteSpace(productCode))
-            throw new ArgumentException("Product code cannot be null or empty", nameof(productCode));
+            throw new ArgumentException(
+                "Product code cannot be null or empty",
+                nameof(productCode)
+            );
 
         if (string.IsNullOrWhiteSpace(businessUnit))
-            throw new ArgumentException("Business unit cannot be null or empty", nameof(businessUnit));
-
+            throw new ArgumentException(
+                "Business unit cannot be null or empty",
+                nameof(businessUnit)
+            );
 
         try
         {
             using var context = await CreateBuDbContextAsync(businessUnit);
-            return await context.Products
-                .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.ProductCode == productCode && m.BusinessUnit == businessUnit);
+            return await context
+                .Products.AsNoTracking()
+                .FirstOrDefaultAsync(m =>
+                    m.ProductCode == productCode && m.BusinessUnit == businessUnit
+                );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting product by code: {Code} in BU: {BU}", productCode, businessUnit);
+            _logger.LogError(
+                ex,
+                "Error getting product by code: {Code} in BU: {BU}",
+                productCode,
+                businessUnit
+            );
             throw;
         }
     }
@@ -132,12 +145,15 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
     public async Task<GlobalProduct?> GetGlobalProductAsync(string productCode)
     {
         if (string.IsNullOrWhiteSpace(productCode))
-            throw new ArgumentException("Product code cannot be null or empty", nameof(productCode));
+            throw new ArgumentException(
+                "Product code cannot be null or empty",
+                nameof(productCode)
+            );
 
         try
         {
-            return await _globalContext.GlobalProducts
-                .AsNoTracking()
+            return await _globalContext
+                .GlobalProducts.AsNoTracking()
                 .FirstOrDefaultAsync(g => g.ProductCode == productCode);
         }
         catch (Exception ex)
@@ -153,8 +169,10 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
             throw new ArgumentNullException(nameof(product));
 
         if (string.IsNullOrWhiteSpace(product.BusinessUnit))
-            throw new ArgumentException("Product business unit cannot be null or empty", nameof(product.BusinessUnit));
-
+            throw new ArgumentException(
+                "Product business unit cannot be null or empty",
+                nameof(product.BusinessUnit)
+            );
 
         try
         {
@@ -166,8 +184,12 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating product: {Code} in BU: {BU}",
-                product.ProductCode, product.BusinessUnit);
+            _logger.LogError(
+                ex,
+                "Error creating product: {Code} in BU: {BU}",
+                product.ProductCode,
+                product.BusinessUnit
+            );
             throw;
         }
     }
@@ -178,7 +200,10 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
             throw new ArgumentNullException(nameof(product));
 
         if (string.IsNullOrWhiteSpace(product.BusinessUnit))
-            throw new ArgumentException("Product business unit cannot be null or empty", nameof(product.BusinessUnit));
+            throw new ArgumentException(
+                "Product business unit cannot be null or empty",
+                nameof(product.BusinessUnit)
+            );
 
         try
         {
@@ -186,20 +211,23 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
 
             await UpdateGlobalProductAsync(product);
 
-            var existing = await buContext.Products
-                       .FirstAsync(p => p.ProductCode == product.ProductCode
-                        && p.BusinessUnit == product.BusinessUnit);
+            var existing = await buContext.Products.FirstAsync(p =>
+                p.ProductCode == product.ProductCode && p.BusinessUnit == product.BusinessUnit
+            );
 
             existing.Status = product.Status;
             existing.UpdatedOn = DateTime.Now;
             existing.UpdatedBy = "SAP_SYNC";
             buContext.Products.Update(existing);
-
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating product: {Code} in BU: {BU}",
-                product.ProductCode, product.BusinessUnit);
+            _logger.LogError(
+                ex,
+                "Error updating product: {Code} in BU: {BU}",
+                product.ProductCode,
+                product.BusinessUnit
+            );
             throw;
         }
     }
@@ -208,7 +236,6 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
     {
         if (product == null)
             throw new ArgumentNullException(nameof(product));
-
 
         try
         {
@@ -249,7 +276,7 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
                     CreatedOn = DateTime.Now,
                     UpdatedOn = DateTime.Now,
                     CreatedBy = "SAP_SYNC",
-                    UpdatedBy = "SAP_SYNC"
+                    UpdatedBy = "SAP_SYNC",
                 };
                 _globalContext.GlobalProducts.Add(globalProduct);
             }
@@ -285,7 +312,6 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
                 existing.UpdatedOn = DateTime.Now;
                 existing.UpdatedBy = "SAP_SYNC";
                 _globalContext.GlobalProducts.Update(existing);
-
             }
         }
         catch (Exception ex)
@@ -297,7 +323,6 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
 
     private async Task<BuDbContext> CreateBuDbContextAsync(string businessUnit)
     {
-
         var buConfig = await _businessUnitHelper.GetBusinessUnitConfigAsync(businessUnit);
 
         var optionsBuilder = new DbContextOptionsBuilder<BuDbContext>();
@@ -322,7 +347,6 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
 
         return context;
     }
-
 
     private bool _disposed = false;
 
@@ -358,10 +382,12 @@ public class ProductRepository : IProductRepository, IAsyncDisposable
             }
         }
     }
+
     public void Dispose()
     {
         Dispose(disposing: true);
     }
+
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposed && disposing)

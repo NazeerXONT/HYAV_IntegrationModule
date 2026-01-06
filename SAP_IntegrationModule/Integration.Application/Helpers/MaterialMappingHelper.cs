@@ -1,13 +1,13 @@
-﻿using Integration.Application.DTOs;
-using Integration.Domain.Entities;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using Integration.Application.DTOs;
+using Integration.Domain.Entities;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Integration.Application.Helpers;
 
@@ -16,10 +16,14 @@ public sealed class MaterialMappingHelper
     private readonly BusinessUnitResolveHelper _businessUnitResolver;
     private readonly ILogger<MaterialMappingHelper> _logger;
 
-    public MaterialMappingHelper(ILogger<MaterialMappingHelper> logger, BusinessUnitResolveHelper businessUnitResolver)
+    public MaterialMappingHelper(
+        ILogger<MaterialMappingHelper> logger,
+        BusinessUnitResolveHelper businessUnitResolver
+    )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _businessUnitResolver = businessUnitResolver ?? throw new ArgumentNullException(nameof(businessUnitResolver));
+        _businessUnitResolver =
+            businessUnitResolver ?? throw new ArgumentNullException(nameof(businessUnitResolver));
     }
 
     public async Task<Product> MapSapToXontMaterialAsync(SapMaterialResponseDto sapMaterial)
@@ -28,13 +32,13 @@ public sealed class MaterialMappingHelper
 
         try
         {
-            var businessUnit = await _businessUnitResolver.ResolveAsync( sapMaterial.Division ?? "");
+            var businessUnit = await _businessUnitResolver.ResolveAsync(sapMaterial.Division ?? "");
 
             var product = new Product
             {
                 // Mandatory fields
                 ProductCode = sapMaterial.Material.Trim(),
-                Description = sapMaterial.MaterialDescription?.Trim()??"",
+                Description = sapMaterial.MaterialDescription?.Trim() ?? "",
                 ProductGroup = GetMaterialGroup(sapMaterial.MaterialGroup1, ""),
                 AlternateSearch = GetMaterialGroup(sapMaterial.MaterialGroup2, ""),
                 StockCategory = GetMaterialGroup(sapMaterial.MaterialGroup3, ""),
@@ -73,16 +77,20 @@ public sealed class MaterialMappingHelper
                 CreatedOn = DateTime.Now,
                 UpdatedOn = ParseSapDate(sapMaterial.TodaysDate),
                 CreatedBy = "SAP_SYNC",
-                UpdatedBy = "SAP_SYNC"
+                UpdatedBy = "SAP_SYNC",
             };
-
 
             return product;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to map SAP material {Code}. SalesOrg: {SalesOrg}, Division: {Division}",
-                sapMaterial.Material, sapMaterial.SalesOrganization, sapMaterial.Division);
+            _logger.LogError(
+                ex,
+                "Failed to map SAP material {Code}. SalesOrg: {SalesOrg}, Division: {Division}",
+                sapMaterial.Material,
+                sapMaterial.SalesOrganization,
+                sapMaterial.Division
+            );
             throw;
         }
     }
@@ -103,8 +111,10 @@ public sealed class MaterialMappingHelper
         if (string.IsNullOrWhiteSpace(sapMaterial.SalesOrganization))
             errors.Add("Sales organization is required");
 
-
-        if (!string.IsNullOrWhiteSpace(sapMaterial.Division) && !await _businessUnitResolver.DivisionExistsAsync(sapMaterial.Division))
+        if (
+            !string.IsNullOrWhiteSpace(sapMaterial.Division)
+            && !await _businessUnitResolver.DivisionExistsAsync(sapMaterial.Division)
+        )
         {
             errors.Add($"Division '{sapMaterial.Division}' not found ");
         }
@@ -113,47 +123,50 @@ public sealed class MaterialMappingHelper
             var errorMessage = string.Join("; ", errors);
             throw new ValidationExceptionDto(errorMessage);
         }
-
     }
 
     public bool HasChanges(Product existing, Product updated)
     {
-        if (existing == null) throw new ArgumentNullException(nameof(existing));
-        if (updated == null) throw new ArgumentNullException(nameof(updated));
+        if (existing == null)
+            throw new ArgumentNullException(nameof(existing));
+        if (updated == null)
+            throw new ArgumentNullException(nameof(updated));
 
-        return existing.Description != updated.Description ||
-               existing.Description2 != updated.Description2 ||
-               existing.ProductGroup != updated.ProductGroup ||
-               existing.AlternateSearch != updated.AlternateSearch ||
-               existing.StockCategory != updated.StockCategory ||
-               existing.ProductTypeCode != updated.ProductTypeCode ||
-               existing.UOM1 != updated.UOM1 ||
-               existing.UOM2 != updated.UOM2 ||
-               existing.ConversionFactor != updated.ConversionFactor ||
-               existing.BatchProcessingFlag != updated.BatchProcessingFlag ||
-               existing.NonStockItemFlag != updated.NonStockItemFlag ||
-               //existing.SalesOrganization != updated.SalesOrganization ||
-               //existing.DistributionChannel != updated.DistributionChannel ||
-               //existing.Division != updated.Division 
-               existing.SMMachineType != updated.SMMachineType ||
-               existing.SMPlatformSize != updated.SMPlatformSize ||
-               existing.SMCapacity != updated.SMCapacity ||
-               existing.SMOperatingEnvironment != updated.SMOperatingEnvironment ||
-               existing.StampingPeriod != updated.StampingPeriod ||
-               existing.WarrantyPeriod != updated.WarrantyPeriod ||
-               existing.Status != updated.Status ||
-               existing.FinishedProduct != updated.FinishedProduct ||
-               existing.SalableFlag != updated.SalableFlag ||
-               existing.BatchControlPrice != updated.BatchControlPrice ||
-               existing.TaxGroupCode != updated.TaxGroupCode ||
-               existing.TaxGroupValue != updated.TaxGroupValue;
+        return existing.Description != updated.Description
+            || existing.Description2 != updated.Description2
+            || existing.ProductGroup != updated.ProductGroup
+            || existing.AlternateSearch != updated.AlternateSearch
+            || existing.StockCategory != updated.StockCategory
+            || existing.ProductTypeCode != updated.ProductTypeCode
+            || existing.UOM1 != updated.UOM1
+            || existing.UOM2 != updated.UOM2
+            || existing.ConversionFactor != updated.ConversionFactor
+            || existing.BatchProcessingFlag != updated.BatchProcessingFlag
+            || existing.NonStockItemFlag != updated.NonStockItemFlag
+            ||
+            //existing.SalesOrganization != updated.SalesOrganization ||
+            //existing.DistributionChannel != updated.DistributionChannel ||
+            //existing.Division != updated.Division
+            existing.SMMachineType != updated.SMMachineType
+            || existing.SMPlatformSize != updated.SMPlatformSize
+            || existing.SMCapacity != updated.SMCapacity
+            || existing.SMOperatingEnvironment != updated.SMOperatingEnvironment
+            || existing.StampingPeriod != updated.StampingPeriod
+            || existing.WarrantyPeriod != updated.WarrantyPeriod
+            || existing.Status != updated.Status
+            || existing.FinishedProduct != updated.FinishedProduct
+            || existing.SalableFlag != updated.SalableFlag
+            || existing.BatchControlPrice != updated.BatchControlPrice
+            || existing.TaxGroupCode != updated.TaxGroupCode
+            || existing.TaxGroupValue != updated.TaxGroupValue;
     }
 
     public void UpdateMaterial(Product existing, Product updated)
     {
-        if (existing == null) throw new ArgumentNullException(nameof(existing));
-        if (updated == null) throw new ArgumentNullException(nameof(updated));
-
+        if (existing == null)
+            throw new ArgumentNullException(nameof(existing));
+        if (updated == null)
+            throw new ArgumentNullException(nameof(updated));
 
         existing.Description = updated.Description;
         existing.Description2 = updated.Description2;
@@ -184,13 +197,11 @@ public sealed class MaterialMappingHelper
 
         existing.UpdatedOn = DateTime.Now;
         existing.UpdatedBy = "SAP_SYNC";
-
     }
 
     public bool HasValidMaterialCode(string materialCode)
     {
-        return !string.IsNullOrWhiteSpace(materialCode) &&
-               materialCode.Length <= 40;
+        return !string.IsNullOrWhiteSpace(materialCode) && materialCode.Length <= 40;
     }
 
     public async Task<bool> HasValidBusinessUnitAsync(string businessUnit)
@@ -201,7 +212,6 @@ public sealed class MaterialMappingHelper
         return await _businessUnitResolver.BusinessUnitExistsAsync(businessUnit);
     }
 
-
     private DateTime ParseSapDate(string sapDate)
     {
         if (string.IsNullOrEmpty(sapDate))
@@ -209,16 +219,28 @@ public sealed class MaterialMappingHelper
 
         try
         {
-            if (DateTime.TryParseExact(sapDate, "yyyyMMdd",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out var result))
+            if (
+                DateTime.TryParseExact(
+                    sapDate,
+                    "yyyyMMdd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var result
+                )
+            )
             {
                 return result;
             }
 
-            if (DateTime.TryParseExact(sapDate, "yyyy-MM-dd",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out result))
+            if (
+                DateTime.TryParseExact(
+                    sapDate,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out result
+                )
+            )
             {
                 return result;
             }

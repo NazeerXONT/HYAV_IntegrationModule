@@ -1,32 +1,30 @@
-﻿using Integration.Application.DTOs;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using Integration.Application.DTOs;
 using Integration.Application.Helpers;
 using Integration.Application.Interfaces;
 using Integration.Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
-using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Net.Http;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Integration.Application.Services;
 
-
-
-public class AuthService : IAuthService
+public sealed class AuthService : IAuthService
 {
     private readonly IAuthRepository _authRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
     private readonly PasswordHashHelper _passwordHasher;
 
-    public AuthService( IAuthRepository authRepository, IConfiguration configuration,ILogger<AuthService> logger,PasswordHashHelper passwordHasher)
+    public AuthService(
+        IAuthRepository authRepository,
+        IConfiguration configuration,
+        ILogger<AuthService> logger,
+        PasswordHashHelper passwordHasher
+    )
     {
         _authRepository = authRepository;
         _configuration = configuration;
@@ -34,7 +32,10 @@ public class AuthService : IAuthService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<AuthResponseDto> AuthenticateAsync(AuthRequestDto request, string? ipAddress = null)
+    public async Task<AuthResponseDto> AuthenticateAsync(
+        AuthRequestDto request,
+        string? ipAddress = null
+    )
     {
         try
         {
@@ -42,20 +43,12 @@ public class AuthService : IAuthService
 
             if (user == null)
             {
-                return new AuthResponseDto
-                {
-                    Success = false,
-                    Message = "Invalid credentials"
-                };
+                return new AuthResponseDto { Success = false, Message = "Invalid credentials" };
             }
 
             if (!_passwordHasher.VerifyPassword(request.Password, user.Password))
             {
-                return new AuthResponseDto
-                {
-                    Success = false,
-                    Message = "Invalid credentials"
-                };
+                return new AuthResponseDto { Success = false, Message = "Invalid credentials" };
             }
 
             var token = GenerateJwtToken(user);
@@ -73,7 +66,9 @@ public class AuthService : IAuthService
                 UserID = user.RecID,
                 RefreshToken = refreshToken,
                 IssuedAt = DateTime.Now,
-                ExpiresAt = DateTime.Now.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpiryDays", 7)),
+                ExpiresAt = DateTime.Now.AddDays(
+                    _configuration.GetValue<int>("Jwt:RefreshTokenExpiryDays", 7)
+                ),
                 DeviceInfo = "API Client",
                 IPAddress = ipAddress ?? "Unknown",
                 Status = "1",
@@ -91,7 +86,8 @@ public class AuthService : IAuthService
                 RefreshToken = refreshToken,
                 User = MapToUserDto(user),
                 ExpiresIn = _configuration.GetValue<int>("Jwt:ExpiryInMinutes", 60) * 60,
-                RefreshTokenExpiresIn = _configuration.GetValue<int>("Jwt:RefreshTokenExpiryDays", 7) * 24 * 60 * 60
+                RefreshTokenExpiresIn =
+                    _configuration.GetValue<int>("Jwt:RefreshTokenExpiryDays", 7) * 24 * 60 * 60,
             };
         }
         catch (Exception ex)
@@ -100,7 +96,10 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<AuthResponseDto> RefreshTokenAsync(string refreshToken, string? ipAddress = null)
+    public async Task<AuthResponseDto> RefreshTokenAsync(
+        string refreshToken,
+        string? ipAddress = null
+    )
     {
         try
         {
@@ -108,11 +107,7 @@ public class AuthService : IAuthService
 
             if (session == null || session.User == null)
             {
-                return new AuthResponseDto
-                {
-                    Success = false,
-                    Message = "Invalid refresh token"
-                };
+                return new AuthResponseDto { Success = false, Message = "Invalid refresh token" };
             }
 
             var user = session.User;
@@ -138,7 +133,9 @@ public class AuthService : IAuthService
                 UserID = user.RecID,
                 RefreshToken = newRefreshToken,
                 IssuedAt = DateTime.Now,
-                ExpiresAt = DateTime.Now.AddDays(_configuration.GetValue<int>("Jwt:RefreshTokenExpiryDays", 7)),
+                ExpiresAt = DateTime.Now.AddDays(
+                    _configuration.GetValue<int>("Jwt:RefreshTokenExpiryDays", 7)
+                ),
                 DeviceInfo = session.DeviceInfo,
                 IPAddress = ipAddress ?? session.IPAddress,
                 Status = "1",
@@ -156,7 +153,8 @@ public class AuthService : IAuthService
                 RefreshToken = newRefreshToken,
                 User = MapToUserDto(user),
                 ExpiresIn = _configuration.GetValue<int>("Jwt:ExpiryInMinutes", 60) * 60,
-                RefreshTokenExpiresIn = _configuration.GetValue<int>("Jwt:RefreshTokenExpiryDays", 7) * 24 * 60 * 60
+                RefreshTokenExpiresIn =
+                    _configuration.GetValue<int>("Jwt:RefreshTokenExpiryDays", 7) * 24 * 60 * 60,
             };
         }
         catch (Exception ex)
@@ -175,7 +173,6 @@ public class AuthService : IAuthService
                 session.Status = "0";
                 session.UpdatedOn = DateTime.Now;
                 await _authRepository.UpdateUserSessionAsync(session);
-
             }
         }
         catch (Exception ex)
@@ -183,7 +180,6 @@ public class AuthService : IAuthService
             throw;
         }
     }
-
 
     public async Task<UserDto> CreateUserAsync(CreateUserDto userDto, string createdBy)
     {
@@ -199,7 +195,7 @@ public class AuthService : IAuthService
                 CreatedBy = createdBy,
                 UpdatedOn = DateTime.Now,
                 UpdatedBy = createdBy,
-                LastAccessedOn = DateTime.Now
+                LastAccessedOn = DateTime.Now,
             };
 
             var created = await _authRepository.CreateUserAsync(user);
@@ -217,7 +213,7 @@ public class AuthService : IAuthService
     private string GenerateJwtToken(User user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ??"");
+        var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "");
 
         var claims = new List<Claim>
         {
@@ -225,19 +221,21 @@ public class AuthService : IAuthService
             new Claim(ClaimTypes.Name, user.UserName),
             new Claim(ClaimTypes.System, user.BusinessUnit),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(JwtRegisteredClaimNames.Sub, user.UserName)
+            new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
         };
-
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.Now.AddMinutes(
-                _configuration.GetValue<int>("Jwt:ExpiryInMinutes", 60)),
+                _configuration.GetValue<int>("Jwt:ExpiryInMinutes", 60)
+            ),
             Issuer = _configuration["Jwt:Issuer"],
             Audience = _configuration["Jwt:Audience"],
             SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                new SymmetricSecurityKey(key),
+                SecurityAlgorithms.HmacSha256Signature
+            ),
         };
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
@@ -262,7 +260,7 @@ public class AuthService : IAuthService
             Status = user.Status,
             LastAccessedOn = user.LastAccessedOn,
             CreatedOn = user.CreatedOn,
-            CreatedBy = user.CreatedBy
+            CreatedBy = user.CreatedBy,
         };
     }
 
@@ -293,6 +291,4 @@ public class AuthService : IAuthService
 
         return errors;
     }
-
-
 }

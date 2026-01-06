@@ -1,9 +1,9 @@
-﻿using Integration.Domain.Entities;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Integration.Domain.Entities;
 
 namespace Integration.Application.Interfaces;
 

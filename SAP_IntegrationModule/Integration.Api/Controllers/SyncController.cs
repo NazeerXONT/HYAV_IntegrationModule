@@ -9,7 +9,7 @@ namespace Integration.Api.Controllers;
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
-public class SyncController : ControllerBase
+public sealed class SyncController : ControllerBase
 {
     private readonly ICustomerSyncService _customerSyncService;
     private readonly IMaterialSyncService _materialSyncService;
@@ -21,30 +21,27 @@ public class SyncController : ControllerBase
     }
 
     [HttpPost("customer")]
-    public async Task<ActionResult<CustomerSyncResultDto>> SyncCustomers([FromBody] XontCustomerSyncRequestDto request)
+    public async Task<ActionResult<CustomerSyncResultDto>> SyncCustomers(
+        [FromBody] XontCustomerSyncRequestDto request
+    )
     {
         var result = await _customerSyncService.SyncCustomersFromSapAsync(request);
         return Ok(result);
-
     }
 
     [HttpPost("material")]
-    public async Task<ActionResult<MaterialSyncResultDto>> SyncMaterials([FromBody] XontMaterialSyncRequestDto request)
+    public async Task<ActionResult<MaterialSyncResultDto>> SyncMaterials(
+        [FromBody] XontMaterialSyncRequestDto request
+    )
     {
-
         var result = await _materialSyncService.SyncMaterialsFromSapAsync(request);
         return Ok(result);
-
     }
 
     [HttpGet("status")]
     public IActionResult GetSyncStatus()
     {
-        var status = new
-        {
-           
-            IsHealthy = true
-        };
+        var status = new { IsHealthy = true };
 
         return Ok(status);
     }

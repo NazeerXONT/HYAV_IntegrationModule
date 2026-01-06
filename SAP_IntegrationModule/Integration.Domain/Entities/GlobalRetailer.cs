@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -93,12 +92,10 @@ public class GlobalRetailer : BaseAuditableEntity
 
     public DateTime? DateOfBirth { get; set; }
 
-
     //public string Salutation { get; set; } = string.Empty;
     //public string ContactName { get; set; } = string.Empty;
     //public string OnStopFlag { get; set; } = string.Empty;
     //public string OnStopReasonCode { get; set; } = string.Empty;
-    //public string Status { get; set; } = string.Empty;   
+    //public string Status { get; set; } = string.Empty;
     //public string SalesOperationType = string.Empty;
-
 }

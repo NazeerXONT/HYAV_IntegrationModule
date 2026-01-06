@@ -1,15 +1,14 @@
-﻿using Integration.Application.DTOs;
-using Integration.Application.Helpers;
-using Integration.Application.Interfaces;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Integration.Application.DTOs;
+using Integration.Application.Helpers;
+using Integration.Application.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace Integration.Application.Services;
-
 
 public sealed class MaterialSyncService : IMaterialSyncService
 {
@@ -22,21 +21,21 @@ public sealed class MaterialSyncService : IMaterialSyncService
         IProductRepository productRepository,
         ISapClient sapClient,
         MaterialMappingHelper mappingHelper,
-        ILogger<MaterialSyncService> logger)
+        ILogger<MaterialSyncService> logger
+    )
     {
-        _productRepository = productRepository ?? throw new ArgumentNullException(nameof(productRepository));
+        _productRepository =
+            productRepository ?? throw new ArgumentNullException(nameof(productRepository));
         _sapClient = sapClient ?? throw new ArgumentNullException(nameof(sapClient));
         _mappingHelper = mappingHelper ?? throw new ArgumentNullException(nameof(mappingHelper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<MaterialSyncResultDto> SyncMaterialsFromSapAsync(XontMaterialSyncRequestDto request)
+    public async Task<MaterialSyncResultDto> SyncMaterialsFromSapAsync(
+        XontMaterialSyncRequestDto request
+    )
     {
-        var result = new MaterialSyncResultDto
-        {
-            SyncDate = DateTime.Now,
-        };
-
+        var result = new MaterialSyncResultDto { SyncDate = DateTime.Now };
 
         try
         {
@@ -47,7 +46,6 @@ public sealed class MaterialSyncService : IMaterialSyncService
                 throw new ArgumentException("Date is required", nameof(request.Date));
 
             var sapMaterials = await _sapClient.GetMaterialChangesAsync(request);
-
 
             if (sapMaterials == null || !sapMaterials.Any())
             {
@@ -64,12 +62,8 @@ public sealed class MaterialSyncService : IMaterialSyncService
                 .ToList();
 
             var invalidCount = sapMaterials.Count - validMaterials.Count;
-            
 
-            var materialGroups = validMaterials
-                .GroupBy(m => new { m.Material })
-                .ToList();
-
+            var materialGroups = validMaterials.GroupBy(m => new { m.Material }).ToList();
 
             await _productRepository.BeginTransactionAsync();
 
@@ -77,25 +71,26 @@ public sealed class MaterialSyncService : IMaterialSyncService
             {
                 foreach (var group in materialGroups)
                 {
-                    await ProcessMaterialGroupAsync(
-                        group.Key.Material,
-                        group.ToList(),
-                        result);
+                    await ProcessMaterialGroupAsync(group.Key.Material, group.ToList(), result);
                 }
 
                 await _productRepository.CommitTransactionAsync();
 
                 result.Success = true;
-                result.Message = $"Material sync completed. " +
-                               $"Total: {result.TotalRecords}, " +
-                               $"New: {result.NewMaterials}, " +
-                               $"Updated: {result.UpdatedMaterials}, " +
-                               $"Skipped: {result.SkippedMaterials}, " +
-                               $"Failed: {result.FailedRecords}";
+                result.Message =
+                    $"Material sync completed. "
+                    + $"Total: {result.TotalRecords}, "
+                    + $"New: {result.NewMaterials}, "
+                    + $"Updated: {result.UpdatedMaterials}, "
+                    + $"Skipped: {result.SkippedMaterials}, "
+                    + $"Failed: {result.FailedRecords}";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during material processing in sync , rolling back transaction");
+                _logger.LogError(
+                    ex,
+                    "Error during material processing in sync , rolling back transaction"
+                );
 
                 await _productRepository.RollbackTransactionAsync();
 
@@ -113,14 +108,16 @@ public sealed class MaterialSyncService : IMaterialSyncService
 
             throw new MaterialSyncException($"Material sync failed: {ex.Message}", ex);
         }
-       
 
         return result;
     }
 
-    private async Task ProcessMaterialGroupAsync( string materialCode, List<SapMaterialResponseDto> sapMaterials,MaterialSyncResultDto result)
+    private async Task ProcessMaterialGroupAsync(
+        string materialCode,
+        List<SapMaterialResponseDto> sapMaterials,
+        MaterialSyncResultDto result
+    )
     {
-
         foreach (var sapMaterial in sapMaterials)
         {
             try
@@ -135,7 +132,8 @@ public sealed class MaterialSyncService : IMaterialSyncService
 
                 var existing = await _productRepository.GetByProductCodeAsync(
                     xontProduct.ProductCode,
-                    xontProduct.BusinessUnit);
+                    xontProduct.BusinessUnit
+                );
 
                 if (existing == null)
                 {
@@ -143,7 +141,6 @@ public sealed class MaterialSyncService : IMaterialSyncService
                     xontProduct.CreatedBy = "SAP_SYNC";
                     await _productRepository.CreateAsync(xontProduct);
                     result.NewMaterials++;
-
                 }
                 else
                 {
@@ -154,7 +151,6 @@ public sealed class MaterialSyncService : IMaterialSyncService
                         existing.UpdatedBy = "SAP_SYNC";
                         await _productRepository.UpdateAsync(existing);
                         result.UpdatedMaterials++;
-
                     }
                     else
                     {
@@ -164,15 +160,16 @@ public sealed class MaterialSyncService : IMaterialSyncService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,  "Error processing material {Code} in sync ",  materialCode);
+                _logger.LogError(ex, "Error processing material {Code} in sync ", materialCode);
 
                 result.FailedRecords++;
 
                 throw new MaterialSyncException(
                     $"Failed to process material {materialCode}: {ex.Message}",
-                    materialCode, ex);
+                    materialCode,
+                    ex
+                );
             }
         }
-
     }
 }

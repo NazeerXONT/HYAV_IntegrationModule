@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Integration.Domain.Entities;
 
-public class RequestLog
+public sealed class RequestLog
 {
     public long RecID { get; set; }
     public string BusinessUnit { get; set; } = string.Empty;
@@ -17,7 +17,7 @@ public class RequestLog
     public DateTime UpdatedOn { get; set; }
 }
 
-public class ErrorLog
+public sealed class ErrorLog
 {
     public long RecID { get; set; }
     public string BusinessUnit { get; set; } = string.Empty;

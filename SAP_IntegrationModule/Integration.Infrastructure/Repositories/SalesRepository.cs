@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Integration.Infrastructure.Repositories;
 
-public class RetailerRepository : IRetailerRepository, IAsyncDisposable
+public class SalesRepository : ISalesRepository, IAsyncDisposable
 {
     private readonly GlobalDbContext _globalContext;
     private readonly BusinessUnitResolveHelper _businessUnitHelper;
@@ -17,7 +17,7 @@ public class RetailerRepository : IRetailerRepository, IAsyncDisposable
     private readonly Dictionary<string, IDbContextTransaction> _buTransactions = new();
     private readonly Dictionary<string, BuDbContext> _buContexts = new();
 
-    public RetailerRepository(
+    public SalesRepository(
         GlobalDbContext globalContext,
         BusinessUnitResolveHelper businessUnitHelper,
         ILogger<RetailerRepository> logger

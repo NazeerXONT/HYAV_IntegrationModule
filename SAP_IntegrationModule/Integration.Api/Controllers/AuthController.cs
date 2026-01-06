@@ -1,22 +1,21 @@
-﻿using Integration.Application.DTOs;
+﻿using System.Security.Claims;
+using Integration.Application.DTOs;
 using Integration.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
-using System.Security.Claims;
 
 namespace Integration.Api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-
-public class AuthController : ControllerBase
+public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService,ILogger<AuthController> logger)
+    public AuthController(IAuthService authService, ILogger<AuthController> logger)
     {
         _authService = authService;
         _logger = logger;
@@ -30,7 +29,11 @@ public class AuthController : ControllerBase
             var validationErrors = _authService.ValidateAuthRequest(request);
             if (validationErrors.Any())
             {
-                _logger.LogWarning("Login failed for user {Username}: {Message}", request.Username, validationErrors);
+                _logger.LogWarning(
+                    "Login failed for user {Username}: {Message}",
+                    request.Username,
+                    validationErrors
+                );
                 return BadRequest(new { errors = validationErrors });
             }
 
@@ -39,7 +42,11 @@ public class AuthController : ControllerBase
 
             if (!result.Success)
             {
-                _logger.LogWarning("Login failed for user {Username}: {Message}", request.Username, result.Message);
+                _logger.LogWarning(
+                    "Login failed for user {Username}: {Message}",
+                    request.Username,
+                    result.Message
+                );
                 return Unauthorized(result.Message);
             }
             return Ok(result);
@@ -47,16 +54,21 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Login failed for user {Username}", request.Username);
-            return StatusCode(500, new AuthResponseDto
-            {
-                Success = false,
-                Message = "An error occurred during login. Please try again."
-            });
+            return StatusCode(
+                500,
+                new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "An error occurred during login. Please try again.",
+                }
+            );
         }
     }
 
     [HttpPost("refresh")]
-    public async Task<ActionResult<AuthResponseDto>> RefreshToken([FromBody] RefreshTokenRequestDto request)
+    public async Task<ActionResult<AuthResponseDto>> RefreshToken(
+        [FromBody] RefreshTokenRequestDto request
+    )
     {
         try
         {
@@ -65,7 +77,11 @@ public class AuthController : ControllerBase
 
             if (!result.Success)
             {
-                _logger.LogWarning("Token refresh failed {Username}: {Message}", result?.User?.Username ?? "", result?.Message);
+                _logger.LogWarning(
+                    "Token refresh failed {Username}: {Message}",
+                    result?.User?.Username ?? "",
+                    result?.Message
+                );
                 return Unauthorized(result);
             }
 
@@ -92,7 +108,7 @@ public class AuthController : ControllerBase
             _logger.LogError(ex, "Logout failed");
             return StatusCode(500, new { error = "Logout failed" });
         }
-    }        
+    }
 
     [HttpPost("users")]
     [Authorize]
@@ -119,4 +135,3 @@ public class AuthController : ControllerBase
         return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
     }
 }
-

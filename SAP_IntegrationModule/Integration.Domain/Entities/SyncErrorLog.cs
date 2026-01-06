@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Integration.Domain.Entities;
 
-public class SyncErrorLog : BaseAuditableEntity
+public sealed class SyncErrorLog : BaseAuditableEntity
 {
     public long RecId { get; set; }
     public string SyncType { get; set; } = string.Empty; // "CUSTOMER", "MATERIAL", etc.

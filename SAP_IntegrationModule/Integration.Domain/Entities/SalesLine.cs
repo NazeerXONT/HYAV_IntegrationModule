@@ -1,6 +1,5 @@
 ﻿namespace Integration.Domain.Entities;
 
-
 public abstract class SalesLineBase : BaseAuditableEntity
 {
     public long RecID { get; set; }

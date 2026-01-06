@@ -1,22 +1,28 @@
-﻿using Integration.Application.DTOs;
+﻿using System.Globalization;
+using Integration.Application.DTOs;
 using Integration.Application.Interfaces;
 using Integration.Domain.Entities;
 using Microsoft.Extensions.Logging;
-using System.Globalization;
 
 namespace Integration.Application.Helpers;
 
-public class CustomerMappingHelper
+public sealed class CustomerMappingHelper
 {
     private readonly BusinessUnitResolveHelper _businessUnitResolver;
     private readonly ILogger<CustomerMappingHelper> _logger;
     private readonly IRetailerRepository _customerRepository;
 
-    public CustomerMappingHelper( ILogger<CustomerMappingHelper> logger, BusinessUnitResolveHelper businessUnitResolver,IRetailerRepository retailerRepository)
+    public CustomerMappingHelper(
+        ILogger<CustomerMappingHelper> logger,
+        BusinessUnitResolveHelper businessUnitResolver,
+        IRetailerRepository retailerRepository
+    )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _businessUnitResolver = businessUnitResolver ?? throw new ArgumentNullException(nameof(businessUnitResolver));
-        _customerRepository = retailerRepository ?? throw new ArgumentNullException(nameof(retailerRepository));
+        _businessUnitResolver =
+            businessUnitResolver ?? throw new ArgumentNullException(nameof(businessUnitResolver));
+        _customerRepository =
+            retailerRepository ?? throw new ArgumentNullException(nameof(retailerRepository));
     }
 
     public async Task<Retailer> MapSapToXontCustomerAsync(SapCustomerResponseDto sapCustomer)
@@ -27,13 +33,15 @@ public class CustomerMappingHelper
         {
             var businessUnit = await _businessUnitResolver.ResolveAsync(sapCustomer.Division ?? "");
 
-            var territory = await _customerRepository.GetTerritoryCodeAsync(sapCustomer.PostalCode ?? "");
+            var territory = await _customerRepository.GetTerritoryCodeAsync(
+                sapCustomer.PostalCode ?? ""
+            );
             if (territory == null || string.IsNullOrWhiteSpace(territory.TerritoryCode))
             {
-                var errorMessage = $"No territory found for postal code: '{sapCustomer.PostalCode}'";
+                var errorMessage =
+                    $"No territory found for postal code: '{sapCustomer.PostalCode}'";
                 _logger.LogError(errorMessage);
                 throw new InvalidOperationException(errorMessage);
-
             }
 
             return new Retailer
@@ -51,14 +59,13 @@ public class CustomerMappingHelper
                 SettlementTermsCode = sapCustomer.PaymentTerm.Trim(),
                 CreditLimit = sapCustomer.CreditLimit,
 
-                VatRegistrationNo = sapCustomer.VATRegistrationNumber?.Trim() ??"",
+                VatRegistrationNo = sapCustomer.VATRegistrationNumber?.Trim() ?? "",
 
                 BusinessUnit = businessUnit,
                 TerritoryCode = territory?.TerritoryCode ?? "",
                 //Division =  sapCustomer.Division?.Trim(),
                 //SalesOrganization = sapCustomer.SalesOrganization?.Trim(),
                 //DistributionChannel = sapCustomer?.Distributionchannel ,
-
 
                 // Default values
                 //Province
@@ -69,34 +76,44 @@ public class CustomerMappingHelper
                 ContactName = string.Empty,
                 PaymentMethodCode = "CA",
                 OnStopFlag = "0",
-                VatCode = string.IsNullOrWhiteSpace(sapCustomer.VATRegistrationNumber) ? string.Empty :  "V1",
-                VatStatus = string.IsNullOrWhiteSpace(sapCustomer.VATRegistrationNumber) ? string.Empty : "1",                  
+                VatCode = string.IsNullOrWhiteSpace(sapCustomer.VATRegistrationNumber)
+                    ? string.Empty
+                    : "V1",
+                VatStatus = string.IsNullOrWhiteSpace(sapCustomer.VATRegistrationNumber)
+                    ? string.Empty
+                    : "1",
 
                 PostCode = "0000",
                 CurrencyCode = "LKR",
                 CurrencyProcessingRequired = "1",
                 Status = "1",
 
-
-
-                RetailerTypeCode = !string.IsNullOrEmpty(sapCustomer.CustomerGroup1) ?
-                    sapCustomer.CustomerGroup1.Trim() : "",
-                RetailerClassCode = !string.IsNullOrEmpty(sapCustomer.CustomerGroup2) ?
-                    sapCustomer.CustomerGroup2.Trim() : "",
-                RetailerCategoryCode = !string.IsNullOrEmpty(sapCustomer.CustomerGroup3) ?
-                    sapCustomer.CustomerGroup3.Trim() : "",
-
+                RetailerTypeCode = !string.IsNullOrEmpty(sapCustomer.CustomerGroup1)
+                    ? sapCustomer.CustomerGroup1.Trim()
+                    : "",
+                RetailerClassCode = !string.IsNullOrEmpty(sapCustomer.CustomerGroup2)
+                    ? sapCustomer.CustomerGroup2.Trim()
+                    : "",
+                RetailerCategoryCode = !string.IsNullOrEmpty(sapCustomer.CustomerGroup3)
+                    ? sapCustomer.CustomerGroup3.Trim()
+                    : "",
 
                 // Audit fields
                 CreatedOn = DateTime.Now,
                 UpdatedOn = ParseSapDate(sapCustomer.TodaysDate),
                 CreatedBy = "SAP_SYNC",
-                UpdatedBy = "SAP_SYNC"
+                UpdatedBy = "SAP_SYNC",
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to map SAP customer {Code}. SalesOrg: {SalesOrg}, Division: {Division}", sapCustomer.Customer, sapCustomer.SalesOrganization, sapCustomer.Division);
+            _logger.LogError(
+                ex,
+                "Failed to map SAP customer {Code}. SalesOrg: {SalesOrg}, Division: {Division}",
+                sapCustomer.Customer,
+                sapCustomer.SalesOrganization,
+                sapCustomer.Division
+            );
             throw;
         }
     }
@@ -117,12 +134,17 @@ public class CustomerMappingHelper
         if (string.IsNullOrWhiteSpace(sapCustomer.SalesOrganization))
             errors.Add("Sales organization is required");
 
-
-        if (!string.IsNullOrWhiteSpace(sapCustomer.Division) && !await _businessUnitResolver.DivisionExistsAsync(sapCustomer.Division))
+        if (
+            !string.IsNullOrWhiteSpace(sapCustomer.Division)
+            && !await _businessUnitResolver.DivisionExistsAsync(sapCustomer.Division)
+        )
         {
             errors.Add($"Division '{sapCustomer.Division}' not found ");
         }
-        if (!string.IsNullOrWhiteSpace(sapCustomer.PostalCode) && !await _customerRepository.PostalCodeTerritoryExistsAsync(sapCustomer.PostalCode))
+        if (
+            !string.IsNullOrWhiteSpace(sapCustomer.PostalCode)
+            && !await _customerRepository.PostalCodeTerritoryExistsAsync(sapCustomer.PostalCode)
+        )
         {
             errors.Add($"Territory for '{sapCustomer.PostalCode}' not found");
         }
@@ -131,42 +153,44 @@ public class CustomerMappingHelper
             var errorMessage = string.Join("; ", errors);
             throw new ValidationExceptionDto(errorMessage);
         }
-
     }
 
     public bool HasChanges(Retailer existing, Retailer updated)
     {
-        if (existing == null) throw new ArgumentNullException(nameof(existing));
-        if (updated == null) throw new ArgumentNullException(nameof(updated));
+        if (existing == null)
+            throw new ArgumentNullException(nameof(existing));
+        if (updated == null)
+            throw new ArgumentNullException(nameof(updated));
 
-        return existing.RetailerName != updated.RetailerName ||
-               existing.AddressLine1 != updated.AddressLine1 ||
-               existing.AddressLine2 != updated.AddressLine2 ||
-               existing.AddressLine3 != updated.AddressLine3 ||
-               existing.AddressLine4 != updated.AddressLine4 ||
-               existing.AddressLine5 != updated.AddressLine5 ||
-               existing.TelephoneNumber != updated.TelephoneNumber ||
-               existing.FaxNumber != updated.FaxNumber ||
-               existing.EmailAddress != updated.EmailAddress ||
-               existing.SettlementTermsCode != updated.SettlementTermsCode ||
-               existing.CreditLimit != updated.CreditLimit ||
-               existing.TerritoryCode != updated.TerritoryCode 
-               
-               //|| existing.SalesOrganization != updated.SalesOrganization ||
-               //existing.Division != updated.Division
-               || existing.VatRegistrationNo != updated.VatRegistrationNo ||
-               existing.RetailerTypeCode != updated.RetailerTypeCode ||
-               existing.RetailerClassCode != updated.RetailerClassCode ||
-               existing.RetailerCategoryCode != updated.RetailerCategoryCode 
-               //|| existing.District != updated.District ||
-               //existing.Town != updated.Town
-               ;
+        return existing.RetailerName != updated.RetailerName
+            || existing.AddressLine1 != updated.AddressLine1
+            || existing.AddressLine2 != updated.AddressLine2
+            || existing.AddressLine3 != updated.AddressLine3
+            || existing.AddressLine4 != updated.AddressLine4
+            || existing.AddressLine5 != updated.AddressLine5
+            || existing.TelephoneNumber != updated.TelephoneNumber
+            || existing.FaxNumber != updated.FaxNumber
+            || existing.EmailAddress != updated.EmailAddress
+            || existing.SettlementTermsCode != updated.SettlementTermsCode
+            || existing.CreditLimit != updated.CreditLimit
+            || existing.TerritoryCode != updated.TerritoryCode
+            //|| existing.SalesOrganization != updated.SalesOrganization ||
+            //existing.Division != updated.Division
+            || existing.VatRegistrationNo != updated.VatRegistrationNo
+            || existing.RetailerTypeCode != updated.RetailerTypeCode
+            || existing.RetailerClassCode != updated.RetailerClassCode
+            || existing.RetailerCategoryCode != updated.RetailerCategoryCode
+        //|| existing.District != updated.District ||
+        //existing.Town != updated.Town
+        ;
     }
 
     public void UpdateCustomer(Retailer existing, Retailer updated)
     {
-        if (existing == null) throw new ArgumentNullException(nameof(existing));
-        if (updated == null) throw new ArgumentNullException(nameof(updated));
+        if (existing == null)
+            throw new ArgumentNullException(nameof(existing));
+        if (updated == null)
+            throw new ArgumentNullException(nameof(updated));
 
         existing.TerritoryCode = updated.TerritoryCode;
         existing.RetailerName = updated.RetailerName;
@@ -191,9 +215,7 @@ public class CustomerMappingHelper
 
         existing.UpdatedOn = DateTime.Now;
         existing.UpdatedBy = "SAP_SYNC";
-
     }
-
 
     private DateTime ParseSapDate(string sapDate)
     {
@@ -202,16 +224,28 @@ public class CustomerMappingHelper
 
         try
         {
-            if (DateTime.TryParseExact(sapDate, "yyyyMMdd",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out var result))
+            if (
+                DateTime.TryParseExact(
+                    sapDate,
+                    "yyyyMMdd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var result
+                )
+            )
             {
                 return result;
             }
 
-            if (DateTime.TryParseExact(sapDate, "yyyy-MM-dd",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out result))
+            if (
+                DateTime.TryParseExact(
+                    sapDate,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out result
+                )
+            )
             {
                 return result;
             }
@@ -223,5 +257,4 @@ public class CustomerMappingHelper
             return DateTime.Now;
         }
     }
-
 }

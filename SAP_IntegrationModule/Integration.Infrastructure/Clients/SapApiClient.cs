@@ -1,10 +1,10 @@
-﻿using Azure.Core.Pipeline;
+﻿using System.Net.Http.Headers;
+using System.Text.Json;
+using Azure.Core.Pipeline;
 using Integration.Application.DTOs;
 using Integration.Application.Interfaces;
 using Microsoft.Extensions.Logging;
 using Polly;
-using System.Net.Http.Headers;
-using System.Text.Json;
 
 namespace Integration.Infrastructure.Clients;
 
@@ -22,34 +22,39 @@ public class SapApiClient : ISapClient
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         };
         _retryPolicy = Policy<HttpResponseMessage>
-        .Handle<HttpRequestException>()
-        .OrResult(r => (int)r.StatusCode >= 500)
-        .WaitAndRetryAsync(
-            retryCount: 3,
-            sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-            onRetry: (outcome, timespan, retryAttempt, context) =>
-            {
-                _logger.LogWarning(
-                    "SAP API call failed. Retry {RetryAttempt} after {Delay}ms. Status: {StatusCode}",
-                    retryAttempt, timespan.TotalMilliseconds,
-                    outcome.Result?.StatusCode.ToString() ?? outcome.Exception?.Message);
-            });
+            .Handle<HttpRequestException>()
+            .OrResult(r => (int)r.StatusCode >= 500)
+            .WaitAndRetryAsync(
+                retryCount: 3,
+                sleepDurationProvider: retryAttempt =>
+                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                onRetry: (outcome, timespan, retryAttempt, context) =>
+                {
+                    _logger.LogWarning(
+                        "SAP API call failed. Retry {RetryAttempt} after {Delay}ms. Status: {StatusCode}",
+                        retryAttempt,
+                        timespan.TotalMilliseconds,
+                        outcome.Result?.StatusCode.ToString() ?? outcome.Exception?.Message
+                    );
+                }
+            );
     }
 
-    public async Task<List<SapCustomerResponseDto>> GetCustomerChangesAsync(XontCustomerSyncRequestDto request)
+    public async Task<List<SapCustomerResponseDto>> GetCustomerChangesAsync(
+        XontCustomerSyncRequestDto request
+    )
     {
         try
-
         {
             var queryParams = new Dictionary<string, string>
             {
                 ["$filter"] =
-                             $"ChangedOn ge datetime'{request.Date}T00:00:00' " +
-                             $"or CreatedOn ge datetime'{request.Date}T00:00:00'",
-                ["$format"] = "json"
+                    $"ChangedOn ge datetime'{request.Date}T00:00:00' "
+                    + $"or CreatedOn ge datetime'{request.Date}T00:00:00'",
+                ["$format"] = "json",
             };
             var queryString = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={kvp.Value}"));
             var endpoint = $"/sap/opu/odata/sap/ZCUSTOMER_MASTER_SRV/CustomerSet?{queryString}";
@@ -59,13 +64,14 @@ public class SapApiClient : ISapClient
 
             var json = await response.Content.ReadAsStringAsync();
 
-            var sapResponse = JsonSerializer.Deserialize<SapODataResponse<SapCustomerResponseDto>>(json, _jsonOptions);
+            var sapResponse = JsonSerializer.Deserialize<SapODataResponse<SapCustomerResponseDto>>(
+                json,
+                _jsonOptions
+            );
 
             var customers = sapResponse?.D?.Results ?? new List<SapCustomerResponseDto>();
 
             return customers;
-
-
         }
         catch (Exception ex)
         {
@@ -74,15 +80,18 @@ public class SapApiClient : ISapClient
         }
     }
 
-    public async Task<List<SapMaterialResponseDto>> GetMaterialChangesAsync(XontMaterialSyncRequestDto request)
+    public async Task<List<SapMaterialResponseDto>> GetMaterialChangesAsync(
+        XontMaterialSyncRequestDto request
+    )
     {
         try
         {
             var queryParams = new Dictionary<string, string>
             {
-                ["$filter"] = $"ChangedOn ge datetime'{request.Date}T00:00:00' " +
-                             $"or CreatedOn ge datetime'{request.Date}T00:00:00'",
-                ["$format"] = "json"
+                ["$filter"] =
+                    $"ChangedOn ge datetime'{request.Date}T00:00:00' "
+                    + $"or CreatedOn ge datetime'{request.Date}T00:00:00'",
+                ["$format"] = "json",
             };
             var queryString = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={kvp.Value}"));
             var endpoint = $"/sap/opu/odata/sap/ZMATERIAL_MASTER_SRV/MaterialSet?{queryString}";
@@ -92,7 +101,10 @@ public class SapApiClient : ISapClient
 
             var json = await response.Content.ReadAsStringAsync();
 
-            var sapResponse = JsonSerializer.Deserialize<SapODataResponse<SapMaterialResponseDto>>(json, _jsonOptions);
+            var sapResponse = JsonSerializer.Deserialize<SapODataResponse<SapMaterialResponseDto>>(
+                json,
+                _jsonOptions
+            );
 
             var materials = sapResponse?.D?.Results ?? new List<SapMaterialResponseDto>();
 

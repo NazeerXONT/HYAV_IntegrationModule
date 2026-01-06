@@ -4,10 +4,11 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Integration.Domain.Entities;
 
-public class Retailer : GlobalRetailer
+public sealed class Retailer : GlobalRetailer
 {
     [StringLength(4)]
     public string BusinessUnit { get; set; } = string.Empty;
+
     //public string SalesOrganization { get; set; } = string.Empty;
     //public string DistributionChannel { get; set; } = string.Empty;
     //public string Division { get; set; } = string.Empty;

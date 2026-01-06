@@ -6,6 +6,4 @@ using System.Threading.Tasks;
 
 namespace Integration.Application.Services;
 
-sealed class StockSyncService
-{
-}
+sealed class StockSyncService { }

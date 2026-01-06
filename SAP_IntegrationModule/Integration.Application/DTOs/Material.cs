@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Integration.Application.DTOs;
 
-public class SapMaterialResponseDto
+public sealed class SapMaterialResponseDto
 {
     [StringLength(4)]
     public string SalesOrganization { get; set; } = string.Empty;
@@ -58,14 +58,14 @@ public class SapMaterialResponseDto
     public string TodaysDate { get; set; } = string.Empty;
 }
 
-public class XontMaterialSyncRequestDto
+public sealed class XontMaterialSyncRequestDto
 {
     [Required(ErrorMessage = "Date is required")]
     [StringLength(8)]
     public string Date { get; set; } = string.Empty;
 }
 
-public class MaterialSyncResultDto
+public sealed class MaterialSyncResultDto
 {
     public bool Success { get; set; }
     public int TotalRecords { get; set; }

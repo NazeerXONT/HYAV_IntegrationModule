@@ -1,26 +1,27 @@
 ﻿using Integration.Application.DTOs;
 using Integration.Application.Interfaces;
 using Serilog.Context;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Integration.Worker;
 
-public class MaterialSyncBackgroundService : BackgroundService
+public sealed class MaterialSyncBackgroundService : BackgroundService
 {
     private readonly ILogger<MaterialSyncBackgroundService> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly IConfiguration _configuration;
 
-    public MaterialSyncBackgroundService(ILogger<MaterialSyncBackgroundService> logger, IServiceProvider serviceProvider, IConfiguration configuration)
+    public MaterialSyncBackgroundService(
+        ILogger<MaterialSyncBackgroundService> logger,
+        IServiceProvider serviceProvider,
+        IConfiguration configuration
+    )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _serviceProvider =
+            serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using (LogContext.PushProperty("Service", nameof(MaterialSyncBackgroundService)))
@@ -31,11 +32,14 @@ public class MaterialSyncBackgroundService : BackgroundService
             var enableSync = _configuration.GetValue<bool>("SyncSettings:EnableMaterialSync", true);
             if (!enableSync)
             {
-                _logger.LogInformation("Material Sync is disabled via configuration. Stopping service.");
+                _logger.LogInformation(
+                    "Material Sync is disabled via configuration. Stopping service."
+                );
                 return;
             }
 
-            var dailySyncTime = _configuration.GetValue<string>("SyncSettings:DailySyncTime", "02:00:00");
+            var dailySyncTime =
+                _configuration.GetValue<string>("SyncSettings:DailySyncTime", "02:00:00") ?? "";
             var syncIntervalMinutes = CalculateMinutesUntilNextRun(dailySyncTime);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -53,18 +57,23 @@ public class MaterialSyncBackgroundService : BackgroundService
                 try
                 {
                     var delay = TimeSpan.FromMinutes(syncIntervalMinutes);
-                    _logger.LogInformation("Material Sync Background Service waiting for {Delay} minutes before next cycle.", delay.TotalMinutes);
+                    _logger.LogInformation(
+                        "Material Sync Background Service waiting for {Delay} minutes before next cycle.",
+                        delay.TotalMinutes
+                    );
                     await Task.Delay(delay, stoppingToken);
                 }
                 catch (OperationCanceledException)
                 {
-                    _logger.LogInformation("Material Sync Background Service cancellation requested. Stopping.");
+                    _logger.LogInformation(
+                        "Material Sync Background Service cancellation requested. Stopping."
+                    );
                     break;
                 }
-                
             }
         }
     }
+
     private async Task PerformSyncWithRetryAsync(CancellationToken stoppingToken)
     {
         const int maxRetries = 2;
@@ -83,16 +92,26 @@ public class MaterialSyncBackgroundService : BackgroundService
 
                 if (retryCount > maxRetries)
                 {
-                    _logger.LogError(ex, "Material sync failed after {RetryCount} attempts. Giving up.", maxRetries + 1);
+                    _logger.LogError(
+                        ex,
+                        "Material sync failed after {RetryCount} attempts. Giving up.",
+                        maxRetries + 1
+                    );
                     throw;
                 }
 
-                _logger.LogWarning(ex, "Material sync failed on attempt {Attempt}/{MaxRetries}. Retrying in 30 seconds...", retryCount, maxRetries + 1);
+                _logger.LogWarning(
+                    ex,
+                    "Material sync failed on attempt {Attempt}/{MaxRetries}. Retrying in 30 seconds...",
+                    retryCount,
+                    maxRetries + 1
+                );
 
                 await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
             }
         }
     }
+
     private int CalculateMinutesUntilNextRun(string dailySyncTime)
     {
         var now = DateTime.Now;
@@ -103,6 +122,7 @@ public class MaterialSyncBackgroundService : BackgroundService
         var delay = nextRun - now;
         return (int)delay.TotalMinutes;
     }
+
     private async Task PerformSyncAsync(CancellationToken stoppingToken)
     {
         using var scope = _serviceProvider.CreateScope();
@@ -110,14 +130,17 @@ public class MaterialSyncBackgroundService : BackgroundService
 
         var request = new XontMaterialSyncRequestDto
         {
-            Date = DateTime.Now.AddDays(-1).ToString("yyyyMMdd")
+            Date = DateTime.Now.AddDays(-1).ToString("yyyyMMdd"),
         };
 
         var result = await syncService.SyncMaterialsFromSapAsync(request);
 
         _logger.LogInformation(
             "Material sync completed: {Total} total, {New} new, {Updated} updated, Skipped: {Skipped}",
-            result.TotalRecords, result.NewMaterials, result.UpdatedMaterials, result.SkippedMaterials);
-
+            result.TotalRecords,
+            result.NewMaterials,
+            result.UpdatedMaterials,
+            result.SkippedMaterials
+        );
     }
 }

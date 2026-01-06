@@ -1,21 +1,24 @@
-﻿using Integration.Application.DTOs;
+﻿using System.Net;
+using System.Security.Claims;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Integration.Application.DTOs;
 using Integration.Application.Interfaces;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using System.Net;
-using System.Security.Claims;
-using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace Integration.Api.Middleware;
 
-public class GlobalExceptionMiddleware
+public sealed class GlobalExceptionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<GlobalExceptionMiddleware> _logger;
 
-    public GlobalExceptionMiddleware(  RequestDelegate next,ILogger<GlobalExceptionMiddleware> logger)
+    public GlobalExceptionMiddleware(
+        RequestDelegate next,
+        ILogger<GlobalExceptionMiddleware> logger
+    )
     {
         _next = next;
         _logger = logger;
@@ -42,7 +45,7 @@ public class GlobalExceptionMiddleware
         {
             Success = false,
             Message = GetUserFriendlyMessage(exception),
-            Timestamp = DateTime.Now
+            Timestamp = DateTime.Now,
         };
 
         response.StatusCode = exception switch
@@ -50,12 +53,19 @@ public class GlobalExceptionMiddleware
             SapApiExceptionDto => (int)HttpStatusCode.BadGateway,
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
             ValidationExceptionDto => (int)HttpStatusCode.BadRequest,
-            _ => (int)HttpStatusCode.InternalServerError
+            _ => (int)HttpStatusCode.InternalServerError,
         };
 
         errorResponse.ErrorType = exception.GetType().Name;
 
-        _logger.LogError(exception, "Error : {ErrorType}, Message: {Message}, Path: {Path}, StatusCode: {StatusCode}", errorResponse.ErrorType, exception.Message, context.Request.Path, response.StatusCode);
+        _logger.LogError(
+            exception,
+            "Error : {ErrorType}, Message: {Message}, Path: {Path}, StatusCode: {StatusCode}",
+            errorResponse.ErrorType,
+            exception.Message,
+            context.Request.Path,
+            response.StatusCode
+        );
 
         var result = JsonSerializer.Serialize(errorResponse);
         await context.Response.WriteAsync(result);
@@ -69,8 +79,7 @@ public class GlobalExceptionMiddleware
             DbUpdateException => "Database update failed.",
             UnauthorizedAccessException => "Not authorized.",
             ValidationExceptionDto => exception.Message,
-            _ => "An unexpected error occurred."
+            _ => "An unexpected error occurred.",
         };
     }
-
 }

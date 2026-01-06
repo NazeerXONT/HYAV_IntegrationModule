@@ -1,12 +1,12 @@
-﻿using Integration.Application.Interfaces;
-using Integration.Domain.Entities;
-using Integration.Infrastructure.Data;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Integration.Application.Interfaces;
+using Integration.Domain.Entities;
+using Integration.Infrastructure.Data;
+using Microsoft.Extensions.Logging;
 
 namespace Integration.Infrastructure.Repositories;
 
@@ -15,15 +15,19 @@ public class LogRepository : ILogRepository
     private readonly GlobalDbContext _context;
     private readonly ILogger<LogRepository> _logger;
 
-    public LogRepository(
-        GlobalDbContext context,
-        ILogger<LogRepository> logger)
+    public LogRepository(GlobalDbContext context, ILogger<LogRepository> logger)
     {
         _context = context;
         _logger = logger;
     }
 
-    public async Task<long> LogRequestAsync(string businessUnit, string username,string methodName, string message, string messageType = "I")
+    public async Task<long> LogRequestAsync(
+        string businessUnit,
+        string username,
+        string methodName,
+        string message,
+        string messageType = "I"
+    )
     {
         try
         {
@@ -32,7 +36,7 @@ public class LogRepository : ILogRepository
                 BusinessUnit = businessUnit,
                 UserName = username,
                 MethodName = methodName,
-                Message = message.Length > 1000 ?  message.Substring(0, 1000) : message,//Nazeer check this we may need to increase the size
+                Message = message.Length > 1000 ? message.Substring(0, 1000) : message, //Nazeer check this we may need to increase the size
                 MessageType = messageType,
                 UpdatedOn = DateTime.Now,
             };
@@ -44,12 +48,24 @@ public class LogRepository : ILogRepository
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to log request for {Username} in {BusinessUnit}", username, businessUnit);
+            _logger.LogError(
+                ex,
+                "Failed to log request for {Username} in {BusinessUnit}",
+                username,
+                businessUnit
+            );
             return 0;
         }
     }
 
-    public async Task LogErrorAsync(string businessUnit, string username, string methodName, string error, long requestLogId, string errorType = "E")
+    public async Task LogErrorAsync(
+        string businessUnit,
+        string username,
+        string methodName,
+        string error,
+        long requestLogId,
+        string errorType = "E"
+    )
     {
         try
         {
@@ -60,7 +76,7 @@ public class LogRepository : ILogRepository
                 MethodName = methodName,
                 ErrorOn = DateTime.Now,
                 ErrorType = errorType,
-                Error = error,//Nazeer check this we may need to increase the size
+                Error = error, //Nazeer check this we may need to increase the size
                 RequestLogID = requestLogId,
                 UpdatedOn = DateTime.Now,
             };
@@ -70,7 +86,11 @@ public class LogRepository : ILogRepository
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to log error for RequestLogID: {RequestLogId}", requestLogId);
+            _logger.LogError(
+                ex,
+                "Failed to log error for RequestLogID: {RequestLogId}",
+                requestLogId
+            );
         }
     }
 }

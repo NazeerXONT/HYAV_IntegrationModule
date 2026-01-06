@@ -1,32 +1,39 @@
-﻿using Azure;
+﻿using System.Diagnostics;
+using System.Security.Claims;
+using System.Text;
+using Azure;
 using Integration.Application.DTOs;
 using Integration.Application.Interfaces;
 using Polly;
-using System.Diagnostics;
-using System.Security.Claims;
-using System.Text;
 
 namespace Integration.Api.Middleware;
 
-public class RequestLoggingMiddleware
+public sealed class RequestLoggingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<RequestLoggingMiddleware> _logger;
     private readonly IConfiguration _configuration;
     private readonly IServiceProvider _serviceProvider;
 
-    public RequestLoggingMiddleware( RequestDelegate next, ILogger<RequestLoggingMiddleware> logger, IConfiguration configuration,IServiceProvider serviceProvider)
+    public RequestLoggingMiddleware(
+        RequestDelegate next,
+        ILogger<RequestLoggingMiddleware> logger,
+        IConfiguration configuration,
+        IServiceProvider serviceProvider
+    )
     {
         _next = next;
         _logger = logger;
         _configuration = configuration;
         _serviceProvider = serviceProvider;
     }
-    
+
     public async Task InvokeAsync(HttpContext context)
     {
         var endpoint = context.GetEndpoint();
-        var controllerName = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>()?.ControllerName;
+        var controllerName = endpoint
+            ?.Metadata.GetMetadata<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>()
+            ?.ControllerName;
 
         if (string.Equals(controllerName, "Auth", StringComparison.OrdinalIgnoreCase))
         {
@@ -54,7 +61,13 @@ public class RequestLoggingMiddleware
                 await LogErrorToDatabase(context, requestLogId, responseText);
             }
 
-            _logger.LogInformation("Request completed: {Method} {Path} with status {StatusCode} in {ElapsedMilliseconds}ms", context.Request.Method,context.Request.Path, context.Response.StatusCode, stopwatch.ElapsedMilliseconds);
+            _logger.LogInformation(
+                "Request completed: {Method} {Path} with status {StatusCode} in {ElapsedMilliseconds}ms",
+                context.Request.Method,
+                context.Request.Path,
+                context.Response.StatusCode,
+                stopwatch.ElapsedMilliseconds
+            );
         }
         catch
         {
@@ -63,7 +76,6 @@ public class RequestLoggingMiddleware
         }
         finally
         {
-
             responseBody.Seek(0, SeekOrigin.Begin);
             await responseBody.CopyToAsync(originalBody);
             context.Response.Body = originalBody;
@@ -74,7 +86,10 @@ public class RequestLoggingMiddleware
     {
         try
         {
-            var businessUnit = context.User?.FindFirst(ClaimTypes.System)?.Value ?? _configuration["DefaultBusinessUnit"] ??"";
+            var businessUnit =
+                context.User?.FindFirst(ClaimTypes.System)?.Value
+                ?? _configuration["DefaultBusinessUnit"]
+                ?? "";
 
             var username = context.User?.Identity?.Name ?? "ANONYMOUS";
             var methodName = $"{context.Request.Method} {context.Request.Path}";
@@ -84,8 +99,20 @@ public class RequestLoggingMiddleware
 
             using var scope = _serviceProvider.CreateScope();
             var _logRepository = scope.ServiceProvider.GetRequiredService<ILogRepository>();
-            _logger.LogInformation("Request received: {Method} {Path} by {User} in {BusinessUnit}", context.Request.Method, context.Request.Path, username, businessUnit);
-            var requestLogId = await _logRepository.LogRequestAsync(businessUnit, username, methodName, message, "I");
+            _logger.LogInformation(
+                "Request received: {Method} {Path} by {User} in {BusinessUnit}",
+                context.Request.Method,
+                context.Request.Path,
+                username,
+                businessUnit
+            );
+            var requestLogId = await _logRepository.LogRequestAsync(
+                businessUnit,
+                username,
+                methodName,
+                message,
+                "I"
+            );
 
             return requestLogId;
         }
@@ -105,11 +132,17 @@ public class RequestLoggingMiddleware
         {
             request.EnableBuffering();
 
-            using var reader = new StreamReader(request.Body, encoding: Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024,leaveOpen: true);
+            using var reader = new StreamReader(
+                request.Body,
+                encoding: Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: false,
+                bufferSize: 1024,
+                leaveOpen: true
+            );
 
             var body = await reader.ReadToEndAsync();
             request.Body.Position = 0;
-            return  body;
+            return body;
         }
         catch
         {
@@ -117,17 +150,31 @@ public class RequestLoggingMiddleware
         }
     }
 
-    private async Task LogErrorToDatabase(HttpContext context,Int64 requestDBLogId, string responseBody)
+    private async Task LogErrorToDatabase(
+        HttpContext context,
+        Int64 requestDBLogId,
+        string responseBody
+    )
     {
         try
         {
-            var businessUnit = context.User?.FindFirst(ClaimTypes.System)?.Value ?? _configuration["DefaultBusinessUnit"] ?? "";
+            var businessUnit =
+                context.User?.FindFirst(ClaimTypes.System)?.Value
+                ?? _configuration["DefaultBusinessUnit"]
+                ?? "";
             var username = context.User?.Identity?.Name ?? "";
             var methodName = $"{context.Request.Method} {context.Request.Path}";
 
             using var scope = _serviceProvider.CreateScope();
             var _logRepository = scope.ServiceProvider.GetRequiredService<ILogRepository>();
-            await _logRepository.LogErrorAsync(businessUnit, username, methodName, responseBody, requestDBLogId, "E");
+            await _logRepository.LogErrorAsync(
+                businessUnit,
+                username,
+                methodName,
+                responseBody,
+                requestDBLogId,
+                "E"
+            );
         }
         catch (Exception logEx)
         {
@@ -143,5 +190,4 @@ public class RequestLoggingMiddleware
         response.Body.Seek(0, SeekOrigin.Begin);
         return string.IsNullOrWhiteSpace(body) ? "[Empty Response]" : body;
     }
-
 }

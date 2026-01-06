@@ -1,14 +1,14 @@
-﻿using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Integration.Application.Helpers;
 
-public class PasswordHashHelper
+public sealed class PasswordHashHelper
 {
     private readonly ILogger<PasswordHashHelper> _logger;
 
@@ -46,7 +46,7 @@ public class PasswordHashHelper
         {
             var hashedInput = HashPassword(password);
             if (hashedInput == hashedPassword)
-                return true;               
+                return true;
 
             return false;
         }

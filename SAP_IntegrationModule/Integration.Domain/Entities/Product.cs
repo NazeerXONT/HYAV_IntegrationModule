@@ -7,14 +7,13 @@ using System.Threading.Tasks;
 
 namespace Integration.Domain.Entities;
 
-public class Product : GlobalProduct
+public sealed class Product : GlobalProduct
 {
     [StringLength(4)]
     public string BusinessUnit { get; set; } = string.Empty;
     //public string SalesOrganization { get; set; } = string.Empty;
     //public string DistributionChannel { get; set; } = string.Empty;
     //public string Division { get; set; } = string.Empty;
-
 
     //need to get specific info
 }

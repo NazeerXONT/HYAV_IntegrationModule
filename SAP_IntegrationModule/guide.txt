@@ -1,0 +1,37 @@
+What this integration layer must do:
+-------------------------------------
+
+1) Sync Customers:
+-Take Details from SAP
+-Group by Global Master Details
+-Group by Division(BusinessUnit)
+-Update Global Data
+-Update Division Data
+
+2) Sync Materials:
+-Take Details from SAP
+-Group by Global Master Details
+-Group by Division(BusinessUnit)
+-Update Global Data
+-Update Division Data
+
+3) Send Sales Orders:
+-Take unprocessed orders
+-Format according to SAP DTO
+-Send to SAP
+-Check response and update status
+
+4) Get Sales Invoices:
+-Request data
+-Take Invoice Details
+-Map with order details (need to clarify)
+-Update Invoice Tables and Order Status
+-Update Inquiry Table (New)
+
+5) Stock Out and Stock In:
+-Ventura stock In requested
+-Get Stock Transaction from SAP based on doc number
+-Update Stock Tables for Stock Out
+-Update Stock Tables for Stock In
+
+6) Payment Details

@@ -1,4 +1,5 @@
 ﻿namespace Integration.Domain.Entities;
+
 public sealed class StockTransaction : BaseAuditableEntity
 {
     public long RecId { get; set; }
@@ -39,7 +40,7 @@ public sealed class StockTransaction : BaseAuditableEntity
     public string PdaTransaction { get; set; } = "0";
 }
 
-public class StockRecord : BaseAuditableEntity
+public sealed class StockRecord : BaseAuditableEntity
 {
     public long RecID { get; set; }
     public string BusinessUnit { get; set; } = string.Empty;
@@ -62,7 +63,7 @@ public class StockRecord : BaseAuditableEntity
     public int TRNTypeHeaderNumber { get; set; }
 }
 
-public class TerritoryProduct : BaseAuditableEntity
+public sealed class TerritoryProduct : BaseAuditableEntity
 {
     public int RecID { get; set; }
     public string BusinessUnit { get; set; } = string.Empty;
@@ -74,7 +75,7 @@ public class TerritoryProduct : BaseAuditableEntity
     public decimal AverageCost { get; set; }
 }
 
-public class CurrentSerialBatch : BaseAuditableEntity
+public sealed class CurrentSerialBatch : BaseAuditableEntity
 {
     public long RecID { get; set; }
     public string BusinessUnit { get; set; } = string.Empty;

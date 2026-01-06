@@ -2,7 +2,7 @@
 
 namespace Integration.Application.DTOs;
 
-public class SapCustomerResponseDto
+public sealed class SapCustomerResponseDto
 {
     [StringLength(4)]
     public string SalesOrganization { get; set; } = string.Empty;
@@ -76,14 +76,14 @@ public class SapCustomerResponseDto
     public string TodaysDate { get; set; } = string.Empty;
 }
 
-public class XontCustomerSyncRequestDto
+public sealed class XontCustomerSyncRequestDto
 {
     [Required(ErrorMessage = "Date is required")]
     [StringLength(8)]
     public string Date { get; set; } = string.Empty;
 }
 
-public class CustomerSyncResultDto
+public sealed class CustomerSyncResultDto
 {
     public bool Success { get; set; }
     public int TotalRecords { get; set; }
