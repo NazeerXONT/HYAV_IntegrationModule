@@ -124,7 +124,6 @@ try
     builder.Services.AddScoped<IMaterialSyncService, MaterialSyncService>();
 
     // --- Add Workers ---
-    builder.Services.AddHostedService<ResilientBackgroundService>();
     builder.Services.AddHostedService<MaterialSyncBackgroundService>();
     builder.Services.AddHostedService<CustomerSyncBackgroundService>();
 
@@ -147,7 +146,8 @@ try
 
     var configurationService = host.Services.GetRequiredService<IConfiguration>();
     var sapBaseUrl = configurationService["SapApi:BaseUrl"];
-    var globalConnString = configurationService.GetConnectionString("GlobalDatabase");
+    var UserDBConnString = configurationService.GetConnectionString("UserDB");
+    var SystemDBConnString = configurationService.GetConnectionString("SystemDB");
 
     if (string.IsNullOrWhiteSpace(sapBaseUrl))
     {
@@ -155,10 +155,16 @@ try
         throw new InvalidOperationException("SAP API BaseUrl is required");
     }
 
-    if (string.IsNullOrWhiteSpace(globalConnString))
+    if (string.IsNullOrWhiteSpace(UserDBConnString))
     {
-        logger.LogError("GlobalDatabase connection string is not configured!");
-        throw new InvalidOperationException("GlobalDatabase connection string is required");
+        logger.LogError("UserDB connection string is not configured!");
+        throw new InvalidOperationException("UserDB connection string is required");
+    }
+
+    if (string.IsNullOrWhiteSpace(SystemDBConnString))
+    {
+        logger.LogError("SystemDB connection string is not configured!");
+        throw new InvalidOperationException("SystemDB connection string is required");
     }
 
     logger.LogInformation("Worker service registered and ready to start");
