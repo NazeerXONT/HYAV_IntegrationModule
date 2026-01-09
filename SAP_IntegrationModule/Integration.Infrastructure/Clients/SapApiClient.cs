@@ -76,7 +76,7 @@ public class SapApiClient : ISapClient
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching customer data from SAP");
-            throw new SapApiExceptionDto($"SAP API call failed: {ex.Message}", ex);
+            throw new SapApiExceptionDto($"SAP Customer API call failed: {ex.Message}", ex);
         }
     }
 

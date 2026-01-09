@@ -21,7 +21,6 @@ public class GlobalRetailer : BaseAuditableEntity
     public string CountryCode { get; set; } = string.Empty;
     public decimal Longitude { get; set; }
     public decimal Latitude { get; set; }
-    public string TerritoryCode { get; set; } = string.Empty;
     public string TelephoneNumber { get; set; } = string.Empty;
     public string TelephoneNumberSys { get; set; } = string.Empty;
     public string FaxNumber { get; set; } = string.Empty;
