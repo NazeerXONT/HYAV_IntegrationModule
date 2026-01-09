@@ -31,56 +31,53 @@ public sealed class CustomerMappingHelper
 
         try
         {
+            var territory = await _customerRepository.GetTerritoryCodeAsync(
+                sapCustomer.PostalCode ?? string.Empty
+            );
+
             var businessUnit = await _businessUnitResolver.ResolveBusinessUnitAsync(
                 sapCustomer.SalesOrganization ?? string.Empty,
                 sapCustomer.Division ?? string.Empty
             );
 
-            var territory = await _customerRepository.GetTerritoryCodeAsync(
-                sapCustomer.PostalCode ?? string.Empty
-            );
-
-            if (territory == null || string.IsNullOrWhiteSpace(territory.TerritoryCode))
-            {
-                var errorMessage =
-                    $"No territory found for postal code: '{sapCustomer.PostalCode}' for customer '{sapCustomer.Customer}'";
-                _logger.LogWarning(errorMessage);
-            }
-
             var retailer = new Retailer
             {
-                RetailerCode = sapCustomer.Customer.Trim(),
-                RetailerName = sapCustomer.CustomerName.Trim(),
-                AddressLine1 = sapCustomer.HouseNo.Trim(),
-                AddressLine2 = sapCustomer.Street.Trim(),
-                AddressLine3 = sapCustomer.Street2.Trim(),
-                AddressLine4 = sapCustomer.Street3.Trim(),
-                AddressLine5 = sapCustomer.City.Trim(),
-                TelephoneNumber = sapCustomer.Telephone.Trim(),
-                FaxNumber = sapCustomer.Fax.Trim(),
-                EmailAddress = sapCustomer.Email.Trim(),
-                SettlementTermsCode = sapCustomer.PaymentTerm.Trim(),
-                CreditLimit = sapCustomer.CreditLimit,
+                RetailerCode = sapCustomer?.Customer?.Trim() ?? string.Empty,
+                RetailerName = sapCustomer?.CustomerName?.Trim() ?? string.Empty,
+                AddressLine1 = sapCustomer?.HouseNo?.Trim() ?? string.Empty,
+                AddressLine2 = sapCustomer?.Street?.Trim() ?? string.Empty,
+                AddressLine3 = sapCustomer?.Street2?.Trim() ?? string.Empty,
+                AddressLine4 = sapCustomer?.Street3?.Trim() ?? string.Empty,
+                AddressLine5 = sapCustomer?.City?.Trim() ?? string.Empty,
+                TelephoneNumber = sapCustomer?.Telephone?.Trim() ?? string.Empty,
+                FaxNumber = sapCustomer?.Fax?.Trim() ?? string.Empty,
+                EmailAddress = sapCustomer?.Email?.Trim() ?? string.Empty,
+                SettlementTermsCode = sapCustomer?.PaymentTerm?.Trim() ?? string.Empty,
+                CreditLimit = sapCustomer?.CreditLimit ?? 0m,
+                VatRegistrationNo = sapCustomer?.VATRegistrationNumber?.Trim() ?? string.Empty,
+                BusinessUnit = businessUnit ?? string.Empty,
+                TerritoryCode = territory?.TerritoryCode?.Trim() ?? string.Empty,
 
-                VatRegistrationNo = sapCustomer.VATRegistrationNumber?.Trim() ?? "",
-                BusinessUnit = businessUnit,
-                TerritoryCode = territory?.TerritoryCode ?? "",
                 //Division =  sapCustomer.Division?.Trim(),
                 //SalesOrganization = sapCustomer.SalesOrganization?.Trim(),
-                //DistributionChannel = sapCustomer?.Distributionchannel ,
+                DistributionChannel = sapCustomer?.Distributionchannel?? string.Empty,
 
                 // Default values
-                //Province
-                //District = sapCustomer.RegionCode?.Trim(),
-                //Town = sapCustomer.PostalCode?.Trim(),
+                PricingMethod = string.Empty,
+                PriceGroup = string.Empty,
+                TradeSchemeGroup = string.Empty,
+                SalesOperationType = string.Empty,
+
+
+
                 TelephoneNumberSys = string.Empty,
                 ContactName = string.Empty,
                 PaymentMethodCode = "CA",
                 OnStopFlag = "0",
-                VatCode = string.IsNullOrWhiteSpace(sapCustomer.VATRegistrationNumber)
+                VatCode = string.IsNullOrWhiteSpace(sapCustomer?.VATRegistrationNumber)
                     ? string.Empty
                     : "V1",
-                VatStatus = string.IsNullOrWhiteSpace(sapCustomer.VATRegistrationNumber)
+                VatStatus = string.IsNullOrWhiteSpace(sapCustomer?.VATRegistrationNumber)
                     ? string.Empty
                     : "1",
                 PostCode = "0000",
@@ -88,19 +85,19 @@ public sealed class CustomerMappingHelper
                 CurrencyProcessingRequired = "1",
                 Status = "1",
 
-                RetailerTypeCode = !string.IsNullOrEmpty(sapCustomer.CustomerGroup1)
+                RetailerTypeCode = !string.IsNullOrEmpty(sapCustomer?.CustomerGroup1)
                     ? sapCustomer.CustomerGroup1.Trim()
                     : "",
-                RetailerClassCode = !string.IsNullOrEmpty(sapCustomer.CustomerGroup2)
+                RetailerClassCode = !string.IsNullOrEmpty(sapCustomer?.CustomerGroup2)
                     ? sapCustomer.CustomerGroup2.Trim()
                     : "",
-                RetailerCategoryCode = !string.IsNullOrEmpty(sapCustomer.CustomerGroup3)
+                RetailerCategoryCode = !string.IsNullOrEmpty(sapCustomer?.CustomerGroup3)
                     ? sapCustomer.CustomerGroup3.Trim()
                     : "",
 
                 // Audit fields
                 CreatedOn = DateTime.Now,
-                UpdatedOn = ParseSapDate(sapCustomer.TodaysDate),
+                UpdatedOn = ParseSapDate(sapCustomer?.TodaysDate),
                 CreatedBy = "SAP_SYNC",
                 UpdatedBy = "SAP_SYNC",
             };
@@ -164,6 +161,22 @@ public sealed class CustomerMappingHelper
             }
         }
 
+        if (string.IsNullOrWhiteSpace(sapCustomer.PostalCode))
+        {
+            errors.Add("Postal Code is required");
+        }
+        else if(!await _customerRepository.PostalCodeTerritoryExistsAsync(sapCustomer.PostalCode))
+        {
+            var errorMessage =
+                $"No territory found for postal code: '{sapCustomer.PostalCode}' for customer '{sapCustomer.Customer}'";
+        }
+
+        if (string.IsNullOrWhiteSpace(sapCustomer.HouseNo))
+            errors.Add("House No is required");
+
+        if (string.IsNullOrWhiteSpace(sapCustomer.PaymentTerm))
+            errors.Add("Payment Term is required");
+
         if (errors.Any())
         {
             var errorMessage = string.Join("; ", errors);
@@ -185,35 +198,54 @@ public sealed class CustomerMappingHelper
         }
     }
 
-    public bool HasRetailerChanges(Retailer existing, Retailer updated)
+    public async Task<(bool retailerChanged, bool geoClassificationChanged)> HasRetailerChanges(
+      Retailer existing,
+      Retailer updated,
+      string postalCode
+  )
     {
         if (existing == null)
             throw new ArgumentNullException(nameof(existing));
         if (updated == null)
             throw new ArgumentNullException(nameof(updated));
 
-        return existing.RetailerName != updated.RetailerName
-            || existing.AddressLine1 != updated.AddressLine1
-            || existing.AddressLine2 != updated.AddressLine2
-            || existing.AddressLine3 != updated.AddressLine3
-            || existing.AddressLine4 != updated.AddressLine4
-            || existing.AddressLine5 != updated.AddressLine5
-            || existing.TelephoneNumber != updated.TelephoneNumber
-            || existing.FaxNumber != updated.FaxNumber
-            || existing.EmailAddress != updated.EmailAddress
-            || existing.SettlementTermsCode != updated.SettlementTermsCode
+        bool retailerChanged =
+            !string.Equals(existing.RetailerCode?.Trim(), updated.RetailerCode?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.RetailerName?.Trim(), updated.RetailerName?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine1?.Trim(), updated.AddressLine1?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine2?.Trim(), updated.AddressLine2?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine3?.Trim(), updated.AddressLine3?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine4?.Trim(), updated.AddressLine4?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine5?.Trim(), updated.AddressLine5?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.TelephoneNumber?.Trim(), updated.TelephoneNumber?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.FaxNumber?.Trim(), updated.FaxNumber?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.EmailAddress?.Trim(), updated.EmailAddress?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.SettlementTermsCode?.Trim(), updated.SettlementTermsCode?.Trim(), StringComparison.OrdinalIgnoreCase)
             || existing.CreditLimit != updated.CreditLimit
-            || existing.TerritoryCode != updated.TerritoryCode
-            //|| existing.SalesOrganization != updated.SalesOrganization ||
-            //existing.Division != updated.Division
-            || existing.VatRegistrationNo != updated.VatRegistrationNo
-            || existing.RetailerTypeCode != updated.RetailerTypeCode
-            || existing.RetailerClassCode != updated.RetailerClassCode
-            || existing.RetailerCategoryCode != updated.RetailerCategoryCode
-        //|| existing.District != updated.District ||
-        //existing.Town != updated.Town
-        ;
+            || !string.Equals(existing.TerritoryCode?.Trim(), updated.TerritoryCode?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.DistributionChannel?.Trim(), updated.DistributionChannel?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.VatRegistrationNo?.Trim(), updated.VatRegistrationNo?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.VatCode?.Trim(), updated.VatCode?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.VatStatus?.Trim(), updated.VatStatus?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.RetailerTypeCode?.Trim(), updated.RetailerTypeCode?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.RetailerClassCode?.Trim(), updated.RetailerClassCode?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.RetailerCategoryCode?.Trim(), updated.RetailerCategoryCode?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        string retailerTown =
+            await _customerRepository.GetCurrentPostalCodeForRetailerAsync(
+                existing.BusinessUnit ?? "",
+                existing.RetailerCode ?? ""
+            ) ?? string.Empty;
+
+        bool geoClassificationChanged = !string.Equals(
+            postalCode?.Trim(),
+            retailerTown?.Trim(),
+            StringComparison.OrdinalIgnoreCase
+        );
+
+        return (retailerChanged, geoClassificationChanged);
     }
+
 
     public void UpdateCustomer(Retailer existing, Retailer updated)
     {
@@ -222,7 +254,6 @@ public sealed class CustomerMappingHelper
         if (updated == null)
             throw new ArgumentNullException(nameof(updated));
 
-        existing.TerritoryCode = updated.TerritoryCode;
         existing.RetailerName = updated.RetailerName;
         existing.AddressLine1 = updated.AddressLine1;
         existing.AddressLine2 = updated.AddressLine2;
@@ -234,14 +265,14 @@ public sealed class CustomerMappingHelper
         existing.EmailAddress = updated.EmailAddress;
         existing.SettlementTermsCode = updated.SettlementTermsCode;
         existing.CreditLimit = updated.CreditLimit;
-        //existing.SalesOrganization = updated.SalesOrganization;
-        //existing.Division = updated.Division;
+        existing.TerritoryCode = updated.TerritoryCode;
+        existing.DistributionChannel = updated.DistributionChannel;
         existing.VatRegistrationNo = updated.VatRegistrationNo;
+        existing.VatCode = updated.VatCode;
+        existing.VatStatus = updated.VatStatus;
         existing.RetailerTypeCode = updated.RetailerTypeCode;
         existing.RetailerClassCode = updated.RetailerClassCode;
         existing.RetailerCategoryCode = updated.RetailerCategoryCode;
-        //existing.District = updated.District;
-        //existing.Town = updated.Town;
 
         existing.UpdatedOn = DateTime.Now;
         existing.UpdatedBy = "SAP_SYNC";
@@ -251,8 +282,6 @@ public sealed class CustomerMappingHelper
         SapCustomerResponseDto sapCustomer
     )
     {
-        await ValidateSapCustomerAsync(sapCustomer);
-
         try
         {
             var businessUnit = await _businessUnitResolver.ResolveBusinessUnitAsync(
@@ -260,48 +289,31 @@ public sealed class CustomerMappingHelper
                 sapCustomer.Division ?? ""
             );
 
-            var territory = await _customerRepository.GetTerritoryCodeAsync(
-                sapCustomer.PostalCode ?? ""
-            );
-            if (territory == null || string.IsNullOrWhiteSpace(territory.TerritoryCode))
-            {
-                var errorMessage =
-                    $"No territory found for postal code: '{sapCustomer.PostalCode}'";
-                _logger.LogError(errorMessage);
-                throw new InvalidOperationException(errorMessage);
-            }
 
             return new GlobalRetailer
             {
-                RetailerCode = sapCustomer.Customer.Trim(),
-                RetailerName = sapCustomer.CustomerName.Trim(),
-                AddressLine1 = sapCustomer.HouseNo.Trim(),
-                AddressLine2 = sapCustomer.Street.Trim(),
-                AddressLine3 = sapCustomer.Street2.Trim(),
-                AddressLine4 = sapCustomer.Street3.Trim(),
-                AddressLine5 = sapCustomer.City.Trim(),
-                TelephoneNumber = sapCustomer.Telephone.Trim(),
-                FaxNumber = sapCustomer.Fax.Trim(),
-                EmailAddress = sapCustomer.Email.Trim(),
-                TerritoryCode = territory?.TerritoryCode ?? "",
-                //Division =  sapCustomer.Division?.Trim(),
-                //SalesOrganization = sapCustomer.SalesOrganization?.Trim(),
-                //DistributionChannel = sapCustomer?.Distributionchannel ,
 
+                RetailerCode = sapCustomer?.Customer?.Trim() ?? string.Empty,
+                RetailerName = sapCustomer?.CustomerName?.Trim() ?? string.Empty,
+                AddressLine1 = sapCustomer?.HouseNo?.Trim() ?? string.Empty,
+                AddressLine2 = sapCustomer?.Street?.Trim() ?? string.Empty,
+                AddressLine3 = sapCustomer?.Street2?.Trim() ?? string.Empty,
+                AddressLine4 = sapCustomer?.Street3?.Trim() ?? string.Empty,
+                AddressLine5 = sapCustomer?.City?.Trim() ?? string.Empty,
+                TelephoneNumber = sapCustomer?.Telephone?.Trim() ?? string.Empty,
+                FaxNumber = sapCustomer?.Fax?.Trim() ?? string.Empty,
+                EmailAddress = sapCustomer?.Email?.Trim() ?? string.Empty,
                 // Default values
-                //Province
-                //District = sapCustomer.RegionCode?.Trim(),
-                //Town = sapCustomer.PostalCode?.Trim(),
+
 
                 TelephoneNumberSys = string.Empty,
-
                 PostCode = "0000",
                 CurrencyCode = "LKR",
                 CurrencyProcessingRequired = "1",
-
+                
                 // Audit fields
                 CreatedOn = DateTime.Now,
-                UpdatedOn = ParseSapDate(sapCustomer.TodaysDate),
+                UpdatedOn = ParseSapDate(sapCustomer?.TodaysDate),
                 CreatedBy = "SAP_SYNC",
                 UpdatedBy = "SAP_SYNC",
             };
@@ -326,20 +338,17 @@ public sealed class CustomerMappingHelper
         if (updated == null)
             throw new ArgumentNullException(nameof(updated));
 
-        return existing.RetailerName != updated.RetailerName
-            || existing.AddressLine1 != updated.AddressLine1
-            || existing.AddressLine2 != updated.AddressLine2
-            || existing.AddressLine3 != updated.AddressLine3
-            || existing.AddressLine4 != updated.AddressLine4
-            || existing.AddressLine5 != updated.AddressLine5
-            || existing.TelephoneNumber != updated.TelephoneNumber
-            || existing.FaxNumber != updated.FaxNumber
-            || existing.EmailAddress != updated.EmailAddress
-            || existing.TerritoryCode != updated.TerritoryCode
-        //|| existing.SalesOrganization != updated.SalesOrganization ||
-        //existing.Division != updated.Division
-        //|| existing.District != updated.District
-        ;
+        return !string.Equals(existing.RetailerCode?.Trim(), updated.RetailerCode?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.RetailerName?.Trim(), updated.RetailerName?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine1?.Trim(), updated.AddressLine1?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine2?.Trim(), updated.AddressLine2?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine3?.Trim(), updated.AddressLine3?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine4?.Trim(), updated.AddressLine4?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.AddressLine5?.Trim(), updated.AddressLine5?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.TelephoneNumber?.Trim(), updated.TelephoneNumber?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.FaxNumber?.Trim(), updated.FaxNumber?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(existing.EmailAddress?.Trim(), updated.EmailAddress?.Trim(), StringComparison.OrdinalIgnoreCase);
+           
     }
 
     public void UpdateGlobalCustomer(GlobalRetailer existing, GlobalRetailer updated)
@@ -349,7 +358,6 @@ public sealed class CustomerMappingHelper
         if (updated == null)
             throw new ArgumentNullException(nameof(updated));
 
-        existing.TerritoryCode = updated.TerritoryCode;
         existing.RetailerName = updated.RetailerName;
         existing.AddressLine1 = updated.AddressLine1;
         existing.AddressLine2 = updated.AddressLine2;
@@ -359,27 +367,15 @@ public sealed class CustomerMappingHelper
         existing.TelephoneNumber = updated.TelephoneNumber;
         existing.FaxNumber = updated.FaxNumber;
         existing.EmailAddress = updated.EmailAddress;
-        //existing.SalesOrganization = updated.SalesOrganization;
-        //existing.Division = updated.Division;
-        //existing.District = updated.District;
 
         existing.UpdatedOn = DateTime.Now;
         existing.UpdatedBy = "SAP_SYNC";
     }
 
-    private string NormalizeString(string? input, int maxLength)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-            return string.Empty;
-
-        var trimmed = input.Trim();
-        return trimmed.Length > maxLength ? trimmed.Substring(0, maxLength) : trimmed;
-    }
-
-    private DateTime ParseSapDate(string sapDate)
+    private DateTime ParseSapDate(string? sapDate)
     {
         if (string.IsNullOrEmpty(sapDate))
-            return DateTime.UtcNow;
+            return DateTime.Now;
 
         try
         {
@@ -410,14 +406,12 @@ public sealed class CustomerMappingHelper
             }
 
             _logger.LogWarning("Failed to parse SAP date: {Date}, using current date", sapDate);
-            return DateTime.UtcNow;
+            return DateTime.Now;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error parsing SAP date: {Date}, using current date", sapDate);
-            return DateTime.UtcNow;
+            return DateTime.Now;
         }
     }
-
-    // ... rest of the existing methods ...
 }
